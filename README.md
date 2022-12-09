@@ -8,4 +8,6 @@ tools for validation of specification against Kotlin compiler,
 and a set of litmus tests covering various aspects of the model. 
 
 Please note that this is a work-in-progress research project with no strict time frame.
+As for now it *should not* be considered as part of 
+the [language specification](https://kotlinlang.org/spec/). 
 
