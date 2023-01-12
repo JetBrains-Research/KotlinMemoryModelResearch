@@ -1,3 +1,9 @@
+# Compiling Accesses to Non-Atomic Variables
+
+Thid doc discuss research questions related to compilation of plain accesses 
+(i.e. accesses to plain non-atomic variables) in Kotlin/Native, 
+and, in general, in other "safe" languages compiled to LLVM IR. 
+
 ## Introduction
 
 [LLVM](https://llvm.org/docs/Atomics.html#atomic-orderings) guide 
