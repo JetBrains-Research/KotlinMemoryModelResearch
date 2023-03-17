@@ -21,6 +21,8 @@ How they are coded in Kotlin is an orthogonal question
 
 ### Access Atomicity
 
+__TODO__
+
 ### Sequential Consistency
 
 Sequential consistency (SC) is well-know property requiring that the result 
