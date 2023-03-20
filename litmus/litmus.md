@@ -145,7 +145,7 @@ Synchronizes-with relation specifies the rules of inter-thread synchronization.
 
 Reads-from relation on non-atomic accesses do not establish synchronizes-with (and thus happens-before) relations. 
 Subsequent reads can observe "stale" values.
-This can be checked with the standard _Message Passing (SB)_ litmus test.
+This can be checked with the standard _Message Passing (MP)_ litmus test.
 
 ```
 plain var x, y;
@@ -285,7 +285,7 @@ and that this order should be consistent with happens-before order.
 In particular, it imlies that if a program accesses only one location, 
 then it should have sequentially consistent semantics.
  
-Non atomic accesses should not guarantee coherence (same as in JVM).
+Non-atomic accesses should not guarantee coherence (same as in JVM).
 This can be checked with the standard _Read-Read Coherence_ litmus test.
 
 
@@ -363,7 +363,7 @@ should observe write accesses to memory in the same order.
 Note that this is still weaker than sequential consistency, 
 because the read accesses are not obligated to observe globally "latest" write access.
 
-Non atomic accesses should not guarantee multi-copy atomicity.
+Non-atomic accesses should not guarantee multi-copy atomicity.
 This can be checked with the standard _Independent Reads of Independent Writes_ litmus test.
 
 ```
