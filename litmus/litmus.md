@@ -1,4 +1,22 @@
 # Litmus Tests for Kotlin Shared Memory Model (KoMeM)
+- [Litmus Tests for Kotlin Shared Memory Model (KoMeM)](#litmus-tests-for-kotlin-shared-memory-model-komem)
+    - [Access Atomicity](#access-atomicity)
+    - [Sequential Consistency](#sequential-consistency)
+      - [Notes](#notes)
+      - [Links](#links)
+    - [Mutual Exclusion](#mutual-exclusion)
+      - [Links](#links-1)
+    - [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
+      - [Notes](#notes-1)
+      - [Links](#links-2)
+    - [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
+    - [Coherence](#coherence)
+      - [Notes](#notes-2)
+      - [Links](#links-3)
+    - [Multi-Copy Atomicity](#multi-copy-atomicity)
+      - [Links:](#links-4)
+    - [Unsafe Publication](#unsafe-publication)
+    - [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
 
 This is a work-in-progress document describing a set of litmus tests 
 for testing Kotlin compiler conformance to the shared memory model specification.
