@@ -470,4 +470,124 @@ __TODO__
 
 ### Causality and Out-of-Thin-Air
 
-__TODO__
+Causality rules aim to prevent paradoxical behaviors 
+where inter-thread communications result in read value 
+to appear _out-of-thin-air (OOTA)_ due to causality loops. 
+The following test, which is called _Load Buffering with Dependencies (LB+DEPS)_, 
+presents an example of a possible thin-air outcome.
+
+```
+(LB+DEPS)
+
+plain var x, y: Int;
+local var a, b: Int; 
+===============
+
+a = x  || b = y 
+y = a  || x = b
+
+===============
+Expected outcomes:
+a=0, b=0
+Forbidden outcomes:
+a=1, b=1 (out-of-thin-air outcome)
+```
+
+In the example above, the outcome with both reads 
+observing value 1 is forbidden because of the dependencies
+between instructions in both threads. 
+Note that if we remove these dependencies, the outcome is allowed
+(and it can even be observed on some ARM machines):
+
+```
+(LB)
+
+plain var x, y: Int;
+local var a, b: Int; 
+===============
+
+a = x  || b = y 
+y = 1  || x = 1
+
+===============
+Expected outcomes:
+a=0, b=0
+a=1, b=0
+a=0, b=1
+a=1, b=1 (weak outcome)
+```
+
+Here the processor or the compiler are allowed to move stores before the loads.
+
+In these two examples it is easy to spot what outcome is OOTA and what is valid one.
+However, in general, it might be not so obvious, because it might be hard 
+to determine what dependencies are "real" and what are "fake".
+Consider another example: 
+
+```
+(LB+FakeDEPS)
+
+plain var x, y: Int;
+local var a, b: Int; 
+===============
+
+a = x          || b = y 
+y = 1 + a * 0  || x = b
+
+===============
+Expected outcomes:
+a=0, b=0
+Forbidden outcomes:
+a=1, b=1 (out-of-thin-air outcome)
+```
+
+Here we still have dependencies between instructions in both threads, 
+but the dependency in the left thread is _fake_, because it can be 
+removed by an optimizing compiler (due to constant folding).
+
+In general, a rigorous specification of "true dependencies" is an open research problem.
+For this reason, we currently do not aim to provide the specification for
+concurrent programs which have racy non-atomic (plain) accesses.
+Instead, we are going to say that the semantics of such programs is __platform-dependent__.
+This gives us an opportunity to refine the specification in the future, 
+when the research community will provide a satisfactory solution to OOTA problem.
+
+Note that we still provide a specification for (non-atomic) race-free programs.
+
+In particular, if we make all variables `volatile` in the (LB) example above,
+the weak behavior should be forbidden.
+
+```
+(LB+Volatile)
+
+volatile var x, y: Int;
+local var a, b: Int; 
+===============
+
+a = x  || b = y 
+y = 1  || x = 1
+
+===============
+Expected outcomes:
+a=0, b=0
+a=1, b=0
+a=0, b=1
+Forbidden outcomes:
+a=1, b=1 (weak outcome)
+```
+
+In general, for atomic accesses, we require that union of 
+program order and reads-from relations is acyclic --- 
+thus preventing all kinds of causality loops.
+
+#### Notes
+
+- In JMM/LLVM all access modes, stronger than `opaque`/`monotonic` guarantee acyclicity
+  of program-order and reads-from relations. 
+  However, for `opaque`/`monotonic` access mode there is no such guarantee, 
+  thus it subject to the same paradoxes as `plain` access mode in JMM.
+
+#### Links
+
+- Relevant JCStress [test](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_10_OOTA.java)
+
