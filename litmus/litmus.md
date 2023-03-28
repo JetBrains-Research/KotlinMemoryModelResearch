@@ -87,8 +87,8 @@ This can be checked with the standard _Store Buffering (SB)_ litmus test.
 ```
 (SB)
 
-plain var x, y;
-local var a, b; 
+plain var x, y: Int;
+local var a, b: Int; 
 ===============
 
 x = 1  || y = 1 
@@ -107,8 +107,8 @@ Using sequentially consistent atomics should restore sequentially consistent sem
 ```
 (SB+SC)
 
-volatile var x, y;
-local var a, b; 
+volatile var x, y: Int;
+local var a, b: Int; 
 ===============
 
 x = 1  || y = 1 
@@ -144,9 +144,9 @@ Locks should provide mutual exclusion property.
 ```
 (MUTEX)
 
-lock l;
-plain var x;
-local var a, b; 
+plain var l: Lock;
+plain var x: int;
+local var a, b: Int; 
 ===============
 
 withLock(l) { || withLock(l) { 
@@ -168,9 +168,9 @@ The variant of Store Buffering test with locks should allow even less number of 
 ```
 (SB+Lock)
 
-lock l;
-plain var x, y;
-local var a, b; 
+plain var l: Lock; 
+plain var x, y: Int;
+local var a, b: Int;
 ===============
 
 withLock(l) { || withLock(l) { 
@@ -200,8 +200,8 @@ Subsequent reads can observe "stale" values.
 This can be checked with the standard _Message Passing (MP)_ litmus test.
 
 ```
-plain var x, y;
-local var a, b; 
+plain var x, y: Int;
+local var a, b: Int; 
 ===============
 
 x = 1  || a = y 
@@ -221,9 +221,9 @@ Subsequent reads (even non-atomic one) are forbidden to observe "stale" values.
 
 
 ```
-plain var x;
-volatile var y;
-local var a, b; 
+plain var x: Int;
+volatile var y: Int;
+local var a, b: Int; 
 ===============
 
 x = 1  || a = y 
@@ -241,9 +241,9 @@ a=1, b=0 (weak outcome!)
 Matching lock-release and lock-acquire pairs also should establish synchronizes-with relation.
 
 ```
-lock l;
+plain var l: Lock; 
 plain var x, y;
-local var a, b; 
+local var a, b;
 ===============
 
 x = 1         || withLock(l) { 
@@ -278,8 +278,8 @@ This can be checked with a number of standard _RMW_ litmus tests.
 ```
 (CAS)
 
-volatile var x;
-local var a, b; 
+volatile var x: Int;
+local var a, b: Int; 
 ===============
 
   a = x.CAS(0, 1) || b = x.CAS(0, 1)
@@ -296,8 +296,8 @@ a=0, b=0 (violates atomicity)
 ```
 (FADD)
 
-volatile var x;
-local var a, b; 
+volatile var x: Int;
+local var a, b: Int; 
 ===============
 
   a = x.FADD() || b = x.FADD()
@@ -314,8 +314,8 @@ a=0, b=0 (violates atomicity)
 ```
 (FADD)
 
-volatile var x;
-local var a, b; 
+volatile var x: Int;
+local var a, b: Int; 
 ===============
 
   a = x.FADD() || x = 2
@@ -344,8 +344,8 @@ This can be checked with the standard _Read-Read Coherence_ litmus test.
 ```
 (CoRR)
 
-plain var x;
-local var a, b; 
+plain var x: Int;
+local var a, b: Int; 
 ===============
 
 x = 1  || a = x 
@@ -367,12 +367,12 @@ for non-atomic accesses without relying on _alias-analysis_.
 ```
 (CoRR)
 class Holder {
-  plain var x;
+  plain var x: Int;
 }
 plain var holder1 = Holder();
 plain var holder2 = holder1;
-local var h1, h2;
-local var a, b; 
+local var h1, h2: Holder;
+local var a, b: Int; 
 ===============
 
 foo1.x = 1 || h1 = holder1 
@@ -421,8 +421,8 @@ This can be checked with the standard _Independent Reads of Independent Writes_ 
 ```
 (IRIW)
 
-plain var x, y;
-local var a, b; 
+plain var x, y: Int;
+local var a, b: Int; 
 ===============
 
 x = 1 || a = x  || c = y || y = 1
@@ -439,8 +439,8 @@ Sequentially consistent atomics provide multi-copy atomicity.
 ```
 (IRIW)
 
-volatile var x, y;
-local var a, b; 
+volatile var x, y: Int;
+local var a, b: Int; 
 ===============
 
 x = 1 || a = x  || c = y || y = 1
