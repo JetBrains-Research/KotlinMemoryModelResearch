@@ -658,6 +658,7 @@ the guarantee described above is no longer applicable.
 ### Progress Guarantees for Volatile Accesses
 
 There is no progress guarantees for non-atomic accesses.
+This allows the compiler to hoist read from non-atomic variable out of the loop body.
 
 ```
 (WHILE)
