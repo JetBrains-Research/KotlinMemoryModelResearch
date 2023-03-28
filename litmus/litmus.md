@@ -25,9 +25,11 @@
     * [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
       * [Notes](#notes-4)
       * [Links](#links-6)
+    * [Progress Guarantees for Volatile Accesses](#progress-guarantees-for-volatile-accesses)
+      * [Links](#links-7)
     * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
       * [Notes](#notes-5)
-      * [Links](#links-7)
+      * [Links](#links-8)
 <!-- TOC -->
 
 This is a work-in-progress document describing a set of litmus tests 
@@ -652,6 +654,46 @@ the guarantee described above is no longer applicable.
 - Relevant JCStress [test](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_08_Finals.java)
 - [An example](https://shipilev.net/blog/2014/jmm-pragmatics/#_premature_publication) 
   of final field semantics violation due to object reference leak in the constructor.
+
+### Progress Guarantees for Volatile Accesses
+
+There is no progress guarantees for non-atomic accesses.
+
+```
+(WHILE)
+
+plain var x: Int;
+===============
+
+x = 1  || while (x == 0) {} 
+
+===============
+Expected outcomes:
+-- program terminates
+-- program hungs
+```
+
+For volatile accesses, eventual progress is guaranteed.
+
+```
+(WHILE+Vol)
+
+volatile var x: Int;
+===============
+
+x = 1  || while (x == 0) {} 
+
+===============
+Expected outcomes:
+-- program terminates
+Forbidden outcomes:
+-- program hungs
+```
+
+#### Links
+
+- Relevant JCStress [test](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_04_Progress.java)
+
 
 ### Causality and Out-of-Thin-Air
 
