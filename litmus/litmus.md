@@ -19,10 +19,12 @@
       * [Links](#links-4)
     * [Multi-Copy Atomicity for Volatile Accesses](#multi-copy-atomicity-for-volatile-accesses)
       * [Links:](#links-)
-    * [Unsafe Publication](#unsafe-publication)
-    * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
+    * [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
       * [Notes](#notes-4)
       * [Links](#links-5)
+    * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
+      * [Notes](#notes-5)
+      * [Links](#links-6)
 <!-- TOC -->
 
 This is a work-in-progress document describing a set of litmus tests 
@@ -464,9 +466,85 @@ a=1, b=0, c=1, d=0 (weak outcome!)
     [2](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/advanced/AdvancedJMM_03_NonMCA_Coherence.java)
 
 
-### Unsafe Publication
+### Initialization and Unsafe Publication Guarantees
 
-__TODO__
+As a safe language, Kotlin should guarantee that variables and fields 
+should always be initialized, even in the presence of data-races and unsafe publication.
+Uninitialized "garbage" values cannot be read under any circumstances.
+
+```
+(UPUB)
+
+class Holder {
+  plain var x: Int;
+}
+plain var h: Holder;
+local var t: Holder;
+local var a: Int;
+===============
+
+h = new Holder() || t = h 
+                 || if (t != null) {
+                 ||   a = t.x
+                 || }
+
+===============
+Expected outcomes:
+a=0
+Forbidden outcomes:
+a!=0 ("garbage" value) 
+```
+
+Note that unlike JMM, we do not aim to provide any guarantees 
+for custom initialization writes in user-provided constructor.
+
+```
+(UPUB+VAL)
+
+class Holder {
+  plain val x: Int = 1;
+}
+plain var h: Holder;
+local var t: Holder;
+local var a: Int;
+===============
+
+h = new Holder() || t = h 
+                 || if (t != null) {
+                 ||   a = t.x
+                 || }
+
+===============
+Expected outcomes:
+a=0
+a=1
+Forbidden outcomes:
+a!=0 || a!=1 ("garbage" value) 
+```
+
+For the example above, JMM guarantees for read `a = t.x` to observe value 1.
+The final fields semantics in JMM is often criticised for being 
+overly-complicated, loosely specified, and fragile.
+For example, if the object reference is leaked from the constructor,
+the guarantee described above is no longer applicable.
+
+#### Notes
+
+- The special treatment of final fields in JMM was introduced 
+  for enabling safe publication patterns for immutable objects, 
+  while avoiding performance overhead of `volatile` accesses
+  (at the time of first JMM spec Java had only this kind of atomic accesses).
+  From that time, many languages (including Java itself) 
+  have adopted `acquire`/`release` access modes,
+  which provide more rigorous approach for lightweight publication patterns.
+  For these reasons, instead of duplicating problematic final fields semantics in Kotlin,
+  we would recommend to instead provide `acquire` and `release` atomic accesses.
+
+#### Links
+
+- Relevant JCStress [test](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_08_Finals.java)
+- [An example](https://shipilev.net/blog/2014/jmm-pragmatics/#_premature_publication) 
+  of final field semantics violation due to object reference leak in the constructor.
 
 ### Causality and Out-of-Thin-Air
 
