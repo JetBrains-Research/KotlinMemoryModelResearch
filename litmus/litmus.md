@@ -2,30 +2,32 @@
 
 <!-- TOC -->
 * [Litmus Tests for Kotlin Shared Memory Model (KoMeM)](#litmus-tests-for-kotlin-shared-memory-model--komem-)
+    * [Glossary](#glossary)
+      * [Links](#links)
     * [Access Atomicity](#access-atomicity)
       * [Notes](#notes)
-      * [Links](#links)
+      * [Links](#links-1)
     * [Sequential Consistency for Volatile Accesses](#sequential-consistency-for-volatile-accesses)
       * [Notes](#notes-1)
-      * [Links](#links-1)
-    * [Mutual Exclusion for Locks](#mutual-exclusion-for-locks)
       * [Links](#links-2)
+    * [Mutual Exclusion for Locks](#mutual-exclusion-for-locks)
+      * [Links](#links-3)
     * [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
       * [Notes](#notes-2)
-      * [Links](#links-3)
+      * [Links](#links-4)
     * [Sequential Consistency for Data-Race Free Programs (DRF-SC)](#sequential-consistency-for-data-race-free-programs--drf-sc-)
     * [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
     * [Coherence](#coherence)
       * [Notes](#notes-3)
-      * [Links](#links-4)
+      * [Links](#links-5)
     * [Multi-Copy Atomicity for Volatile Accesses](#multi-copy-atomicity-for-volatile-accesses)
       * [Links:](#links-)
     * [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
       * [Notes](#notes-4)
-      * [Links](#links-5)
+      * [Links](#links-6)
     * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
       * [Notes](#notes-5)
-      * [Links](#links-6)
+      * [Links](#links-7)
 <!-- TOC -->
 
 This is a work-in-progress document describing a set of litmus tests 
@@ -45,6 +47,33 @@ The set of programming primitives covered by the tests is listed below:
 The litmus tests in this doc are given in pseudo-code for clarity.
 How they are coded in Kotlin is an orthogonal question 
 (also note that the atomics and locks API is still unstable in Kotlin Multiplatform).
+
+
+### Glossary
+
+Access modes:
+
+| JMM name             | LLVM name            | C++ name             | Provided Guarantees                       |
+|----------------------|----------------------|----------------------|-------------------------------------------|
+| ---                  | `NotAtomic`          | non-atomic           | Undefined behavior in case of races       |
+| `plain`              | `Unordered`          | ---                  | No Out-of-thin-Air values (vague defined) |
+| `opaque`             | `Monotonic`          | `relaxed`            | Coherence                                 |
+| `release` & `acqure` | `Release` & `Acqure` | `release` & `acqure` | Release-Acquire Consistency               |
+| `volatile`           | `SeqCst`             | `seq_cst`            | Sequential Consistency                    |
+
+Common relations:
+
+- _Program-Order_ --- total order among all memory access events within each thread.
+- _Reads-From_ --- relation binding write access to all read accesses, that read from this write.
+- _Synchronizes-With_ --- relation connecting events that provide inter-thread synchronization.
+- _Happens-Before_ --- roughly, an order in which events "observe" each other; formally, 
+  a transitive closure of the union of program-order and synchronizes-with relations.    
+
+#### Links
+
+- [JDK9 memory order modes](https://gee.cs.oswego.edu/dl/html/j9mm.html)
+- [LLVM access modes](https://llvm.org/docs/Atomics.html)
+- [C++ memory_order](https://en.cppreference.com/w/cpp/atomic/memory_order)
 
 
 ### Access Atomicity
