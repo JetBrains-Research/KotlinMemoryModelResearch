@@ -13,6 +13,7 @@
     * [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
       * [Notes](#notes-2)
       * [Links](#links-3)
+    * [Sequential Consistency for Data-Race Free Programs (DRF-SC)](#sequential-consistency-for-data-race-free-programs--drf-sc-)
     * [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
     * [Coherence](#coherence)
       * [Notes](#notes-3)
@@ -274,6 +275,53 @@ a=1, b=0 (weak outcome!)
 #### Links
 
 - Relevant JCStress [tests](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_06_Causality.java)
+
+
+### Sequential Consistency for Data-Race Free Programs (DRF-SC)
+
+DRF is a standard requirement to memory models asserting that
+race-free programs should exhibit only sequentially consistent behaviors.
+In simple words "correctly synchronizing programs have sequentially consistent semantics".
+
+Definition of data-race is standard: two accesses form data race 
+if they are not ordered by happens-before relation, 
+at least one of them is a write access, and at least one is non-atomic access.
+Thus, we say memory model M satisfies DRF-SC, if for any program 
+that is race-free under sequential consistency, model M allows only 
+sequentially consistent behaviors.
+
+Let us consider another variant of message passing litmus test.
+
+```
+(MP-DRF)
+
+plain var x: Int;
+volatile var y: Int;
+local var a: Int; 
+===============
+
+x = 1  || if (y) {
+y = 1  ||   a = x 
+       || }
+
+===============
+Expected outcomes:
+a=1
+Forbiddent outcomes:
+a!=0
+```
+
+Here the only allowed outcome is `a=1`.
+This can be proven with the help of DRF-SC. 
+Under sequential consistency, read from `y` can either 
+occur before write `y = 1` (in this case then branch is not executed at all), 
+or after it. In the latter case the read `a = x` should observe the "last" write to `x`, 
+which is `x = 1`. Because both of these executions are race-free
+we can apply DRF-SC and conclude that these executions are the only possible 
+executions under Kotlin memory model.
+
+Note that in the example above write `y = 1` and read from `y` do not constitute "data race"
+according to DRF-SC definition, because both are `volatile` accesses.
 
 
 ### Read-Modify-Write Atomicity
