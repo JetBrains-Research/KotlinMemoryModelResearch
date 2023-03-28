@@ -39,7 +39,38 @@ How they are coded in Kotlin is an orthogonal question
 
 ### Access Atomicity
 
-__TODO__
+Accesses to variables/fields of the reference types 
+and primitive types except `Long` and `Double` should be atomic.
+
+```
+(ATOM)
+
+plain var x: Int;
+local var a: Int; 
+===============
+
+x = -1 || a = x 
+
+===============
+Expected outcomes:
+a=0
+a=-1
+```
+
+#### Notes
+
+- [JVM does not guarantee atomicity](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7) 
+  for `Long` and `Double`, hence we cannot guarantee it by default either.
+  Still, to get a simpler model, it might be worth to actually provide atomicity for these types.
+  This, however, would require some efforts. For example, it might require 
+  to compile accesses to `Long` and `Double` variables/fields as `opaque` accesses on JVM, 
+  and as `unordered` accesses on LLVM. 
+  
+
+#### Links
+
+- Relevant JCStress [tests](https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_02_AccessAtomicity.java)
+
 
 ### Sequential Consistency
 
