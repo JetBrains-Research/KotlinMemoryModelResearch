@@ -112,7 +112,7 @@ a=0, b=0 (non-SC outcome!)
 Using sequentially consistent atomics should restore sequentially consistent semantics.
 
 ```
-(SB+SC)
+(SB+Vol)
 
 volatile var x, y: Int;
 local var a, b: Int; 
@@ -207,6 +207,8 @@ Subsequent reads can observe "stale" values.
 This can be checked with the standard _Message Passing (MP)_ litmus test.
 
 ```
+(MP)
+
 plain var x, y: Int;
 local var a, b: Int; 
 ===============
@@ -228,6 +230,8 @@ Subsequent reads (even non-atomic one) are forbidden to observe "stale" values.
 
 
 ```
+(MP+Vol)
+
 plain var x: Int;
 volatile var y: Int;
 local var a, b: Int; 
@@ -248,6 +252,8 @@ a=1, b=0 (weak outcome!)
 Matching lock-release and lock-acquire pairs also should establish synchronizes-with relation.
 
 ```
+(MP+Lock)
+
 plain var l: Lock; 
 plain var x, y;
 local var a, b;
@@ -366,7 +372,7 @@ a=0, b=0 (violates atomicity)
 
 
 ```
-(FADD)
+(FADD+WR)
 
 volatile var x: Int;
 local var a, b: Int; 
@@ -419,7 +425,7 @@ to enable _Common Subexpression Elimination (CSE)_ and similar optimizations
 for non-atomic accesses without relying on _alias-analysis_.
 
 ```
-(CoRR)
+(CoRR-CSE)
 class Holder {
   plain var x: Int;
 }
@@ -491,7 +497,7 @@ a=1, b=0, c=1, d=0 (weak outcome!)
 Sequentially consistent atomics provide multi-copy atomicity.
 
 ```
-(IRIW)
+(IRIW+Vol)
 
 volatile var x, y: Int;
 local var a, b: Int; 
@@ -547,7 +553,7 @@ Note that unlike JMM, we do not aim to provide any guarantees
 for custom initialization writes in user-provided constructor.
 
 ```
-(UPUB+VAL)
+(UPUB+Ctor)
 
 class Holder {
   plain val x: Int = 1;
@@ -684,7 +690,7 @@ In particular, if we make all variables `volatile` in the (LB) example above,
 the weak behavior should be forbidden.
 
 ```
-(LB+Volatile)
+(LB+Vol)
 
 volatile var x, y: Int;
 local var a, b: Int; 
