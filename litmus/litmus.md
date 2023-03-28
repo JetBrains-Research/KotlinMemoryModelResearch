@@ -418,6 +418,30 @@ Forbidden outcomes:
 a=0, b=1 (violates atomicity)
 ```
 
+In terms of ordering guarantees, read-modify-write operations 
+should provide same guarantees as a pair of volatile read and write accesses.
+
+```
+(MP+CAS)
+
+plain var x: Int;
+volatile var y: Int;
+local var a, b: Int; 
+===============
+
+x = 1  || a = y.CAS(1, 2) 
+y = 1  || b = x
+
+===============
+Expected outcomes:
+a=0, b=0
+a=0, b=1
+a=1, b=1
+Forbidden outcomes:
+a=1, b=0 (weak outcome!)
+```
+
+
 ### Coherence
 
 __Coherence__, also known as _sequential consistency per location_, 
