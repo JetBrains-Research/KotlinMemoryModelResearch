@@ -55,13 +55,13 @@ How they are coded in Kotlin is an orthogonal question
 
 Access modes:
 
-| JMM name             | LLVM name            | C++ name             | Provided Guarantees                       |
-|----------------------|----------------------|----------------------|-------------------------------------------|
-| ---                  | `NotAtomic`          | non-atomic           | Undefined behavior in case of races       |
-| `plain`              | `Unordered`          | ---                  | No Out-of-thin-Air values (vague defined) |
-| `opaque`             | `Monotonic`          | `relaxed`            | Coherence                                 |
-| `release` & `acqure` | `Release` & `Acqure` | `release` & `acqure` | Release-Acquire Consistency               |
-| `volatile`           | `SeqCst`             | `seq_cst`            | Sequential Consistency                    |
+| JMM name             | LLVM name            | C++ name             | Provided Guarantees                         |
+|----------------------|----------------------|----------------------|---------------------------------------------|
+| ---                  | `NotAtomic`          | non-atomic           | Undefined behavior in case of races         |
+| `plain`              | `Unordered`          | ---                  | No Out-of-thin-Air values (vaguely defined) |
+| `opaque`             | `Monotonic`          | `relaxed`            | Coherence                                   |
+| `release` & `acqure` | `Release` & `Acqure` | `release` & `acqure` | Release-Acquire Consistency                 |
+| `volatile`           | `SeqCst`             | `seq_cst`            | Sequential Consistency                      |
 
 Common relations:
 
@@ -69,7 +69,7 @@ Common relations:
 - _Reads-From_ --- relation binding write access to all read accesses, that read from this write.
 - _Synchronizes-With_ --- relation connecting events that provide inter-thread synchronization.
 - _Happens-Before_ --- roughly, an order in which events "observe" each other; formally, 
-  a transitive closure of the union of program-order and synchronizes-with relations.    
+  a transitive closure of the union of program-order and synchronizes-with relations.
 
 #### Links
 
