@@ -103,7 +103,7 @@ a=-1
 - [JVM does not guarantee atomicity](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7) 
   for `Long` and `Double`, hence we cannot guarantee it by default either.
   Still, to get a simpler model, it might be worth to actually provide atomicity for these types.
-  This, however, would require some efforts. For example, it might require 
+  This, however, would require some effort. For example, it might require 
   to compile accesses to `Long` and `Double` variables/fields as `opaque` accesses on JVM, 
   and as `unordered` accesses on LLVM. 
   
