@@ -1,57 +1,118 @@
 # Litmus Tests for Kotlin Shared Memory Model (KoMeM)
 
 <!-- TOC -->
-- [Litmus Tests for Kotlin Shared Memory Model (KoMeM)](#litmus-tests-for-kotlin-shared-memory-model-komem)
-    - [Glossary](#glossary)
-      - [Links](#links)
-    - [Access Atomicity](#access-atomicity)
-      - [Notes](#notes)
-      - [Links](#links-1)
-    - [Sequential Consistency for Volatile Accesses](#sequential-consistency-for-volatile-accesses)
-      - [Notes](#notes-1)
-      - [Links](#links-2)
-    - [Mutual Exclusion for Locks](#mutual-exclusion-for-locks)
-      - [Links](#links-3)
-    - [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
-      - [Notes](#notes-2)
-      - [Links](#links-4)
-    - [Sequential Consistency for Data-Race Free Programs (DRF-SC)](#sequential-consistency-for-data-race-free-programs-drf-sc)
-    - [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
-    - [Coherence](#coherence)
-      - [Notes](#notes-3)
-      - [Links](#links-5)
-    - [Multi-Copy Atomicity for Volatile Accesses](#multi-copy-atomicity-for-volatile-accesses)
-      - [Links:](#links-6)
-    - [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
-      - [Notes](#notes-4)
-      - [Links](#links-7)
-    - [Progress Guarantees for Volatile Accesses](#progress-guarantees-for-volatile-accesses)
-      - [Links](#links-8)
-    - [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
-      - [Notes](#notes-5)
-      - [Links](#links-9)
+* [Litmus Tests for Kotlin Shared Memory Model (KoMeM)](#litmus-tests-for-kotlin-shared-memory-model--komem-)
+  * [Summary](#summary)
+    * [Proposed Changes with respect to JMM](#proposed-changes-with-respect-to-jmm)
+  * [Glossary](#glossary)
+  * [Guarantees and Litmus Tests](#guarantees-and-litmus-tests)
+    * [Access Atomicity](#access-atomicity)
+    * [Sequential Consistency for Volatile Accesses](#sequential-consistency-for-volatile-accesses)
+    * [Mutual Exclusion for Locks](#mutual-exclusion-for-locks)
+    * [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
+    * [Sequential Consistency for Data-Race Free Programs (DRF-SC)](#sequential-consistency-for-data-race-free-programs--drf-sc-)
+    * [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
+    * [Coherence](#coherence)
+    * [Multi-Copy Atomicity for Volatile Accesses](#multi-copy-atomicity-for-volatile-accesses)
+    * [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
+    * [Progress Guarantees for Volatile Accesses](#progress-guarantees-for-volatile-accesses)
+    * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
 <!-- TOC -->
 
 This is a work-in-progress document describing a set of litmus tests 
 for testing Kotlin compiler conformance to the shared memory model specification.
-It contains a standard set of litmus tests from literature,  
-and is mainly inspired by the analogous test suite from the [jcstress](https://github.com/openjdk/jcstress) 
-project aiming to test JVM implementation conformance to JMM.
+The litmus tests are grouped according to the higher-level properties
+of the memory model that they are aiming to check.
 
-The litmus tests are grouped according to the higher-level properties 
-of the memory model that they are aiming to check. 
+The test suite contains a standard set of litmus tests from literature,  
+and is mainly inspired by the analogous test suite from the [jcstress](https://github.com/openjdk/jcstress) 
+project aiming to test JVM implementations conformance to Java Memory Model (JMM).
 
 The set of programming primitives covered by the tests is listed below:
 - non-atomic (plain) accesses;
 - atomic sequentially consistent (volatile) accesses;
+- read-modify-write operations (e.g. CAS) on atomics;
 - locks.
 
-The litmus tests in this doc are given in pseudo-code for clarity.
-How they are coded in Kotlin is an orthogonal question 
-(also note that the atomics and locks API is still unstable in Kotlin Multiplatform).
+The litmus tests in this doc are given in pseudocode because 
+currently the atomics and locks API is still unstable in Kotlin Multiplatform
 
+## Summary
 
-### Glossary
+The main design goals of the Kotlin Memory Model are listed below. 
+
+* Being close to JMM for the purpose of Java ecosystem compatibility.
+* Being pragmatic, as simple as possible, and close to industry state-of-the-art.
+* Requiring minimal changes to Kotlin compiler (ideally, none).
+
+Non-goals:
+
+* Inventing a new complicated academic memory model.
+
+With these goals in mind, we propose the following main properties of memory model.
+
+* __Access atomicity__ for primitive types (except `Long` and `Double`), and references.
+  Since JMM provides the same guarantee, it would be reasonable to also require it from Kotlin.
+
+  __Alternatives:__
+  + access atomicity for __all primitive types__ and references
+    * Pros: simpler model, no difference between `Int`/`Long` and `Float`/`Double` types.
+    * Cons: would require significant changes in the Kotlin/JVM and Kotlin/Native compilers ---
+      special treatment of `Long` and `Double` variables when emitting platform code in backend.
+  + _access atomicity_ __only for references__
+    * Pros: simpler model, no difference between `Int`/`Long` and `Float`/`Double` types, 
+      no need to worry about exotic architectures with non-machine-word-sized `int` in Kotlin/Native compiler. 
+    * Cons: weaker semantics compared to JMM  
+
+* __Data Race Freedom Guarantee__ --- "correctly synchronizing programs have sequentially consistent semantics".
+  It is a standard requirement for memory models asserting that
+  race-free programs should exhibit only sequentially consistent behaviors.
+
+* __Happens-Before__  guarantees with a standard set of rules,
+  requiring that synchronizing operations (matching unlock/lock events, writes/reads on volatile variables, etc)
+  establish happens-before relation.
+
+* __Progress Guarantees__  for atomic variables, requiring that all writes
+  to atomic variables will be eventually observed by all threads.
+  Read and write operations on __non-atomic__ variables __do not give any 
+  progress guarantess__ (similarly, as in JMM).
+
+* __Safe Initialization__ for all variables even in presence of races 
+  (unsafe publication). This property asserts that uninitialized "garbage"
+  values cannot be read under any circumstances. It is guaranteed by JMM, 
+  and should be guaranteed for any safe language. 
+
+* __Unspecified Behavior__ for __racy programs__.
+  Rigorous specification of non-atomic accesses behavior in presence of races 
+  is a decade-lasting open research problem. 
+  Existing research proposals are too complicated and fragile to rely on in practice.
+  Declaring the semantics of racy programs to be implementation-defined 
+  gives us freedom to refine the specification in the future, 
+  when a satisfactory solution will be discovered.  
+  At the same time it is still an improvement over current 
+  [specification](https://kotlinlang.org/spec/concurrency.html#concurrency)
+  which declares behavior of all concurrent programs to be platform-defined. 
+
+### Proposed Changes with respect to JMM
+
+Despite our efforts to stick close to JMM, 
+we propose the following changes aiming to address some problematic aspects of JMM.
+
+* No special treatment of __final fields__, which, in context of Kotlin,   
+  would correspond to final `val` properties. 
+  Final fields semantics in JMM is often criticised for being
+  overly-complicated, loosely specified, and fragile.
+  The special treatment of final fields in JMM was introduced
+  for enabling safe publication patterns for immutable objects,
+  while avoiding performance overhead of `volatile` accesses
+  (at the time of first JMM spec Java had only this kind of atomic accesses).
+  From that time, many languages (including Java itself)
+  have adopted `acquire` and `release` access modes,
+  which provide more rigorous approach for implementing lightweight publication patterns.
+  For these reasons, instead of duplicating problematic final fields semantics in Kotlin,
+  __we would recommend__ to instead provide __Acquire and Release__ atomic accesses in Kotlin.
+
+## Glossary
 
 Access modes:
 
@@ -77,6 +138,11 @@ Common relations:
 - [LLVM access modes](https://llvm.org/docs/Atomics.html)
 - [C++ memory_order](https://en.cppreference.com/w/cpp/atomic/memory_order)
 
+## Guarantees and Litmus Tests
+
+Next we provide a more detailed description of various 
+memory model guarantees, together with litmus tests 
+aiming to check these properties.
 
 ### Access Atomicity
 
@@ -103,7 +169,7 @@ a=-1
 - [JVM does not guarantee atomicity](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7) 
   for `Long` and `Double`, hence we cannot guarantee it by default either.
   Still, to get a simpler model, it might be worth to actually provide atomicity for these types.
-  This, however, would require some effort. For example, it might require 
+  This, however, would require some effort. One solution might be 
   to compile accesses to `Long` and `Double` variables/fields as `opaque` accesses on JVM, 
   and as `unordered` accesses on LLVM. 
   
@@ -637,18 +703,6 @@ The final fields semantics in JMM is often criticised for being
 overly-complicated, loosely specified, and fragile.
 For example, if the object reference is leaked from the constructor,
 the guarantee described above is no longer applicable.
-
-#### Notes
-
-- The special treatment of final fields in JMM was introduced 
-  for enabling safe publication patterns for immutable objects, 
-  while avoiding performance overhead of `volatile` accesses
-  (at the time of first JMM spec Java had only this kind of atomic accesses).
-  From that time, many languages (including Java itself) 
-  have adopted `acquire`/`release` access modes,
-  which provide more rigorous approach for lightweight publication patterns.
-  For these reasons, instead of duplicating problematic final fields semantics in Kotlin,
-  we would recommend to instead provide `acquire` and `release` atomic accesses.
 
 #### Links
 
