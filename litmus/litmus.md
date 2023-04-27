@@ -1,24 +1,5 @@
 # Litmus Tests for Kotlin Shared Memory Model (KoMeM)
 
-<!-- TOC -->
-* [Litmus Tests for Kotlin Shared Memory Model (KoMeM)](#litmus-tests-for-kotlin-shared-memory-model--komem-)
-  * [Summary](#summary)
-    * [Proposed Changes with respect to JMM](#proposed-changes-with-respect-to-jmm)
-  * [Glossary](#glossary)
-  * [Guarantees and Litmus Tests](#guarantees-and-litmus-tests)
-    * [Access Atomicity](#access-atomicity)
-    * [Sequential Consistency for Volatile Accesses](#sequential-consistency-for-volatile-accesses)
-    * [Mutual Exclusion for Locks](#mutual-exclusion-for-locks)
-    * [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
-    * [Sequential Consistency for Data-Race Free Programs (DRF-SC)](#sequential-consistency-for-data-race-free-programs--drf-sc-)
-    * [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
-    * [Coherence](#coherence)
-    * [Multi-Copy Atomicity for Volatile Accesses](#multi-copy-atomicity-for-volatile-accesses)
-    * [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
-    * [Progress Guarantees for Volatile Accesses](#progress-guarantees-for-volatile-accesses)
-    * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
-<!-- TOC -->
-
 This is a work-in-progress document describing a set of litmus tests 
 for testing Kotlin compiler conformance to the shared memory model specification.
 The litmus tests are grouped according to the higher-level properties
@@ -36,6 +17,24 @@ The set of programming primitives covered by the tests is listed below:
 
 The litmus tests in this doc are given in pseudocode because 
 currently the atomics and locks API is still unstable in Kotlin Multiplatform
+
+<!-- TOC -->
+* [Summary](#summary)
+  * [Proposed Changes with respect to JMM](#proposed-changes-with-respect-to-jmm)
+* [Glossary](#glossary)
+* [Guarantees and Litmus Tests](#guarantees-and-litmus-tests)
+  * [Access Atomicity](#access-atomicity)
+  * [Sequential Consistency for Volatile Accesses](#sequential-consistency-for-volatile-accesses)
+  * [Mutual Exclusion for Locks](#mutual-exclusion-for-locks)
+  * [Synchronizes-With and Happens-Before Rules](#synchronizes-with-and-happens-before-rules)
+  * [Sequential Consistency for Data-Race Free Programs (DRF-SC)](#sequential-consistency-for-data-race-free-programs--drf-sc-)
+  * [Read-Modify-Write Atomicity](#read-modify-write-atomicity)
+  * [Coherence](#coherence)
+  * [Multi-Copy Atomicity for Volatile Accesses](#multi-copy-atomicity-for-volatile-accesses)
+  * [Initialization and Unsafe Publication Guarantees](#initialization-and-unsafe-publication-guarantees)
+  * [Progress Guarantees for Volatile Accesses](#progress-guarantees-for-volatile-accesses)
+  * [Causality and Out-of-Thin-Air](#causality-and-out-of-thin-air)
+<!-- TOC -->
 
 ## Summary
 
@@ -88,8 +87,7 @@ With these goals in mind, we propose the following main properties of memory mod
   Existing research proposals are too complicated and fragile to rely on in practice.
   Declaring the semantics of racy programs to be implementation-defined 
   gives us freedom to refine the specification in the future, 
-  when a satisfactory solution will be discovered.  
-  At the same time it is still an improvement over current 
+  when a satisfactory solution will be discovered. At the same time it is still an improvement over current 
   [specification](https://kotlinlang.org/spec/concurrency.html#concurrency)
   which declares behavior of all concurrent programs to be platform-defined. 
 
