@@ -1,11 +1,10 @@
 # Litmus Tests for Kotlin Shared Memory Model (KoMeM)
 
-This is a work-in-progress document describing a set of litmus tests 
-for testing Kotlin compiler conformance to the shared memory model specification.
+This is a work-in-progress document describing a set of litmus tests for testing Kotlin compiler conformance to the shared memory model specification.
 The litmus tests are grouped according to the higher-level properties
 of the memory model that they are aiming to check.
 
-The test suite contains a standard set of litmus tests from literature,  
+The test suite contains a standard set of litmus tests from literature, 
 and is mainly inspired by the analogous test suite from the [jcstress](https://github.com/openjdk/jcstress) 
 project aiming to test JVM implementations conformance to Java Memory Model (JMM).
 
@@ -96,8 +95,7 @@ With these goals in mind, we propose the following main properties of memory mod
 Despite our efforts to stick close to JMM, 
 we propose the following changes aiming to address some problematic aspects of JMM.
 
-* No special treatment of __final fields__, which, in context of Kotlin,   
-  would correspond to final `val` properties. 
+* No special treatment of __final fields__, which, in context of Kotlin, would correspond to final `val` properties. 
   Final fields semantics in JMM is often criticised for being
   overly-complicated, loosely specified, and fragile.
   The special treatment of final fields in JMM was introduced
