@@ -108,6 +108,9 @@ we propose the following changes aiming to address some problematic aspects of J
   For these reasons, instead of duplicating problematic final fields semantics in Kotlin,
   __we would recommend__ to instead provide __Acquire and Release__ atomic accesses in Kotlin.
 
+See [this](https://github.com/JetBrains-Research/KotlinMemoryModelResearch/blob/master/research/final-fields.md) 
+document for the details on the `final` fields semantics problem.
+
 ## Glossary
 
 Access modes:
