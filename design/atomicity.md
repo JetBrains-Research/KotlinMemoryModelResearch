@@ -1,4 +1,4 @@
-# Design notes on atomicity guarantees for plain memory accesses in Kotlin
+# Design notes on atomicity guarantees and semantics of plain memory accesses in Kotlin
 
 Atomicity is a property of an operation guaranteeing that 
 the effect of the operation is observable as single indivisible unit.
@@ -19,9 +19,9 @@ may break the atomicity guarantee.
 
 This is why most modern programming languages (including Java, C++, Rust, etc.) 
 distinguish between the _plain_ and _atomic_ memory accesses.
-Kotlin also provides several ways to mark variables (i.e., either fields of array elements) as atomic: 
+Kotlin also provides several ways to mark variables (i.e., either fields or array elements) as atomic: 
 - via the [`@Volatile` annotation](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.concurrent/-volatile/);
-- via the [`Atomic*` classes](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.concurrent/) from a standard library;  
+- via the [`Atomic*` classes](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.concurrent/) from the standard library;  
 - via the [`atomicfu` library](https://github.com/Kotlin/kotlinx-atomicfu).
 
 For atomic variables, the atomicity of read and writes is guaranteed as expected.
@@ -30,18 +30,20 @@ and depends on several factors, including the design principles
 of the particular programming language.
 
 This document discusses the design choices of the Kotlin language
-with respect to atomicity guarantees for plain memory accesses.  
+with respect to atomicity guarantees and semantics of plain shared memory accesses.  
 This design should take into account two main concerns:
 providing reasonable and predictable semantics for the Kotlin developers,
 while taking into account the constraints imposed by semantics of 
 plain accesses in Kotlin backends (JVM, LLVM, and JS/WASM). 
 
-## Atomicity of Plain Accesses
+## Overview
+
+### Atomicity of Plain Accesses
 
 In this section, we overview the atomicity guarantees 
 provided by the main backends of the Kotlin language.
 
-### Atomicity in JVM
+#### Atomicity in JVM
 
 JVM [guarantees](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7) atomicity 
 of plain memory accesses for:
@@ -95,14 +97,94 @@ Have the `Point` class not implement the `LooselyConsistentValue` marker interfa
 the only possible values that the read `Point p = ps[0]` 
 can observe would be either `(0.0, 1.0)` or `(2.0, 3.0)`.
 
-### Atomicity in LLVM
+#### Atomicity in LLVM
 
-### Atomicity in JS & WebAssembly
+In LLVM, each memory access in the IR can be annotated 
+with the [_atomic ordering mode_](https://llvm.org/docs/Atomics.html).
+There are 7 ordering modes in total, 
+with two of them directly related to plain memory accesses.
 
-## Data Races
+- `NotAtomic` access mode is intended for compiling non-atomic memory accesses
+   from "unsafe" languages like C++ or (unsafe subset of) Rust, 
+   where racy accesses to the same memory location result in undefined behavior.
+   For this type of accesses there are no atomicity guarantees.
+ 
+- `Unordered` access mode is intended for compiling plain memory accesses 
+  from "safe" languages like Java, where it is expected that even 
+  racy programs have somewhat defined semantics.
+  For this type of accesses the LLVM guarantees atomicity.  
+
+#### Atomicity in JS & WebAssembly
+
+TODO
+
+### Data Races
+
+Another important aspect of the plain memory accesses semantics
+is how the data races on plain variables should be treated.
+In essence, there are just two options.  
+
+__Unsafe__ languages (C++, unsafe Rust) treat data races on non-atomic variables as _undefined behavior_.
+In the LLVM, for the `NotAtomic` access mode, the guarantee is a little bit stronger:
+a racy load instruction reads special [`undef` value](https://llvm.org/docs/LangRef.html#undefined-values).
+
+It is worth mentioning though that the semantics of `undef` value is a bit trickier than one may expect.
+In particular, the read of `undef` value is not equivalent to a read of some arbitrary value.
+The compiler is allowed to materialize each usage of the same `undef` value to different values.  
+For example, for the program below (given in pseudocode), 
+LLVM semantics allow to print "Error":
+
+```
+%r1 = undef;
+if (%r1 <= 0 && %r1 > 0) {
+  println("Error");
+}   
+```
+
+The design choice of "unsafe" languages gives the compiler maximal flexibility
+when it comes to optimizing the non-atomic memory accesses,
+but it results in undefined semantics,
+essentially breaking any possible safety guarantees.
+We refer the curious reader to the papers [], [], and [],
+for the examples of how various safety guarantees can be broken,
+and what particular compiler optimizations may lead to these violations.
+
+__Safe__ languages (for example, Java) cannot fall back to fully undefined semantics
+in the case of data races, because such a decision would ultimately break all 
+the safety guarantees of the language.
+What these languages typically guarantee instead is the so-called "no-thin-air values" property.
+Intuitively, it means that each read (even racy one) must observe 
+a value written by some preceding or concurrent write in the same program execution.
+
+#### Out-of-thin-Air Values Problem
+
+Although the informal definition of the "no-thin-air" guarantee given above
+seems intuitive, the problem is that the rigorous formal definition
+of it is an [open research question]().
+Because of this, all existing specifications of other languages
+(e.g. C++, Rust, Go, etc.) claim "no-thin-air" guarantee 
+(at a certain level of access atomicity),
+without actually defining what constitutes "thin-air" values.
+
+The Java memory model attempted to resolve this issue
+(via the [commit mechanism](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4.8)),
+but it was later shown to fail in many other aspects, 
+see papers [], [], and [] for the details.
+Thus, the JMM solution also cannot be considered satisfactory. 
+
+This means that even though safe languages like Java may claim "no-thin-air" guarantee, 
+they do not really give any definitive semantics for racy plain memory accesses. 
+
+#### Controversy around Benign Data Races
+
+### Safe Publication
+
+## Design Choices for Kotlin
 
 ## Compilation Strategies
 
 ### JVM
 
 ### LLVM
+
+## References
