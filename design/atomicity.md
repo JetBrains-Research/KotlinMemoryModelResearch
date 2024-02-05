@@ -45,7 +45,7 @@ provided by the main backends of the Kotlin language.
 
 #### Atomicity in JVM
 
-JVM [guarantees](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.7) atomicity 
+JVM [guarantees](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.7) atomicity 
 of plain memory accesses for:
 * variables of primitive types, except `long` and `double`, that is:
   * `int`
@@ -160,7 +160,7 @@ a value written by some preceding or concurrent write in the same program execut
 
 Although the informal definition of the "no-thin-air" guarantee given above
 seems intuitive, the problem is that the rigorous formal definition
-of it is an [open research question]().
+of it is an [open research question](https://dl.acm.org/doi/pdf/10.1145/2618128.2618134).
 Because of this, all existing specifications of other languages
 (e.g. C++, Rust, Go, etc.) claim "no-thin-air" guarantee 
 (at a certain level of access atomicity),
@@ -168,8 +168,8 @@ without actually defining what constitutes "thin-air" values.
 
 The Java memory model attempted to resolve this issue
 (via the [commit mechanism](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4.8)),
-but it was later shown to fail in many other aspects, 
-see papers [], [], and [] for the details.
+but it was later shown to fail in many other aspects
+(see papers [], [], and [] for the details).
 Thus, the JMM solution also cannot be considered satisfactory. 
 
 This means that even though safe languages like Java may claim "no-thin-air" guarantee, 
@@ -188,3 +188,28 @@ they do not really give any definitive semantics for racy plain memory accesses.
 ### LLVM
 
 ## References
+
+1. Java Threads, Locks, and Memory Model Specification \
+   https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html
+
+2. JEP draft: Null-Restricted Value Class Types (Preview) \
+   https://openjdk.org/jeps/8316779 
+
+3. LLVM Atomic Instructions and Concurrency Guide \
+   https://llvm.org/docs/Atomics.html 
+
+4. Studying compilation schemes for shared memory accesses in Kotlin/Native \
+   _Gleb Soloviev_ (BSc thesis) \
+   TODO 
+
+5. How to miscompile programs with “benign” data races \
+   _Hans-J. Boehm_ \
+   https://www.usenix.org/legacy/events/hotpar11/tech/final_files/Boehm.pdf
+
+6. Bounding Data Races in Space and Time (section 2) \
+   _Stephen Dolan, KC Sivaramakrishnan, and Anil Madhavapeddy_ 
+   https://core.ac.uk/download/pdf/222831817.pdf
+
+7. Outlawing ghosts: Avoiding out-of-thin-air results \
+   _Hans-J. Boehm, and Brian Demsky_ \
+   https://dl.acm.org/doi/pdf/10.1145/2618128.2618134  
