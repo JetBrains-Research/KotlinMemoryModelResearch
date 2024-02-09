@@ -145,9 +145,9 @@ The design choice of "unsafe" languages gives the compiler maximal flexibility
 when it comes to optimizing the non-atomic memory accesses,
 but it results in undefined semantics,
 essentially breaking any possible safety guarantees.
-We refer the curious reader to the papers [], [], and [],
-for the examples of how various safety guarantees can be broken,
-and what particular compiler optimizations may lead to these violations.
+Examples of how various safety guarantees can be broken
+due to a combination of data races and various aggressive compiler optimizations
+can be found in the papers [], [], and [].
 
 __Safe__ languages (for example, Java) cannot fall back to fully undefined semantics
 in the case of data races, because such a decision would ultimately break all 
@@ -156,7 +156,7 @@ What these languages typically guarantee instead is the so-called "no-thin-air v
 Intuitively, it means that each read (even racy one) must observe 
 a value written by some preceding or concurrent write in the same program execution.
 
-#### Out-of-thin-Air Values Problem
+#### Out-of-thin-Air Values Problem (OOTA)
 
 Although the informal definition of the "no-thin-air" guarantee given above
 seems intuitive, the problem is that the rigorous formal definition
@@ -176,6 +176,69 @@ This means that even though safe languages like Java may claim "no-thin-air" gua
 they do not really give any definitive semantics for racy plain memory accesses. 
 
 #### Controversy around Benign Data Races
+
+Another controversial topic is the notion of so-called _benign data races_,
+which is commonly widespread among Java developers.
+Informally, a benign data race is considered to be a race that does not
+break the correctness of the program.
+
+The most famous example of the benign data race is a race in 
+the `hashCode()` implementation for the `String` class.
+In essence, it boils down to the following code:
+
+```java
+class String {
+    /* ... */
+    private int hash;
+    private boolean hashIsZero;
+
+    public int hashCode() {
+        int h = hash;
+        if (h == 0 && !hashIsZero) {
+            h = computeHashCode();
+            if (h == 0) {
+                hashIsZero = true;
+            } else {
+                hash = h;
+            }
+        }
+        return h;
+    }
+    /* ... */
+}
+```
+
+In this code, there is a potential read-write race on `hash` field.
+Yet it is considered benign, because hash code computation is pure and idempotent,
+and thus any read from `hash` field can only either read `0` or the computed value.
+
+Some experts argue that the notion of "benign data races" is misleading,
+and that any race on non-atomic variables should be considered an error.
+The motivation for this reasoning is that in the presence of
+some seemingly "benign" races, certain compiler optimizations can produce invalid results
+(see paper [] for the details).
+
+This is why in C/C++, where all races lead to undefined behavior,
+all benign data races should be explicitly marked as atomic accesses 
+with `memory_order_relaxed` access mode (corresponds to `Monotonic` access mode in LLVM).
+This is the weakest atomic access mode in the C/C++ (comes right after `Unordered` in LLVM).
+Usage of this access mode generally has no significant performance impact.
+This is because relaxed accesses do not emit any memory fences when compiled
+(although certain compiler optimizations are forbidden for relaxed accesses,
+ and the compilers just often tend to treat them more conservatively than necessary).
+More use-cases of `memory_order_relaxed` access mode can be found in 
+the [corresponding guide](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p2055r0.pdf).
+
+Another obstacle with the notion of benign data races is that 
+in the absence of the formal semantics for racy programs 
+(see subsection on the OOTA problem above),
+there is no way to give a formal definition of benign data race.
+One possible definition could be stated as follows:
+a program is _effectively race free_ if all possible executions of 
+this program have the same observable behavior,
+that is, the program is _deterministic_.
+However, with no formal semantics at hand,
+the phrase _all possible executions of a program_ is essentially meaningless.
 
 ### Safe Publication
 
