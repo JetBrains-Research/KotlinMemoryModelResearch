@@ -147,7 +147,7 @@ but it results in undefined semantics,
 essentially breaking any possible safety guarantees.
 Examples of how various safety guarantees can be broken
 due to a combination of data races and various aggressive compiler optimizations
-can be found in the papers [], [], and [].
+can be found in the papers [[4]][4], [[5]][5], and [[6]][6].
 
 __Safe__ languages (for example, Java) cannot fall back to fully undefined semantics
 in the case of data races, because such a decision would ultimately break all 
@@ -160,7 +160,7 @@ a value written by some preceding or concurrent write in the same program execut
 
 Although the informal definition of the "no-thin-air" guarantee given above
 seems intuitive, the problem is that the rigorous formal definition
-of it is an [open research question](https://dl.acm.org/doi/pdf/10.1145/2618128.2618134).
+of it is an [open research question][6].
 Because of this, all existing specifications of other languages
 (e.g. C++, Rust, Go, etc.) claim "no-thin-air" guarantee 
 (at a certain level of access atomicity),
@@ -169,7 +169,7 @@ without actually defining what constitutes "thin-air" values.
 The Java memory model attempted to resolve this issue
 (via the [commit mechanism](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4.8)),
 but it was later shown to fail in many other aspects
-(see papers [], [], and [] for the details).
+(see papers [[8]][8], [[9]][9], and [[10]][10] for the details).
 Thus, the JMM solution also cannot be considered satisfactory. 
 
 This means that even though safe languages like Java may claim "no-thin-air" guarantee, 
@@ -216,7 +216,7 @@ Some experts argue that the notion of "benign data races" is misleading,
 and that any race on non-atomic variables should be considered an error.
 The motivation for this reasoning is that in the presence of
 some seemingly "benign" races, certain compiler optimizations can produce invalid results
-(see paper [] for the details).
+(see paper [[5]][5] for the details).
 
 This is why in C/C++, where all races lead to undefined behavior,
 all benign data races should be explicitly marked as atomic accesses 
@@ -253,26 +253,58 @@ the phrase _all possible executions of a program_ is essentially meaningless.
 ## References
 
 1. Java Threads, Locks, and Memory Model Specification \
-   https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html
+   [[Link]][1]
+
+[1]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html 
 
 2. JEP draft: Null-Restricted Value Class Types (Preview) \
-   https://openjdk.org/jeps/8316779 
+   [[Link]][2] 
+
+[2]: https://openjdk.org/jeps/8316779
 
 3. LLVM Atomic Instructions and Concurrency Guide \
-   https://llvm.org/docs/Atomics.html 
+   [[Link]][3] 
+
+[3]: https://llvm.org/docs/Atomics.html
 
 4. Studying compilation schemes for shared memory accesses in Kotlin/Native \
    _Gleb Soloviev_ (BSc thesis) \
-   TODO 
+   [[Link]][4]
+
+[4]: https://weakmemory.github.io/project-theses/studying-compilation-schemes-KN.pdf
 
 5. How to miscompile programs with “benign” data races \
    _Hans-J. Boehm_ \
-   https://www.usenix.org/legacy/events/hotpar11/tech/final_files/Boehm.pdf
+   [[Link]][5]
+
+[5]: https://www.usenix.org/legacy/events/hotpar11/tech/final_files/Boehm.pdf
 
 6. Bounding Data Races in Space and Time (section 2) \
-   _Stephen Dolan, KC Sivaramakrishnan, and Anil Madhavapeddy_ 
-   https://core.ac.uk/download/pdf/222831817.pdf
+   _Stephen Dolan, KC Sivaramakrishnan, and Anil Madhavapeddy_ \
+   [[Link]][6]
+
+[6]: https://core.ac.uk/download/pdf/222831817.pdf
 
 7. Outlawing ghosts: Avoiding out-of-thin-air results \
    _Hans-J. Boehm, and Brian Demsky_ \
-   https://dl.acm.org/doi/pdf/10.1145/2618128.2618134  
+   [[Link]][7]
+
+[7]: https://dl.acm.org/doi/pdf/10.1145/2618128.2618134
+
+8. Java Memory Model Examples: Good, Bad and Ugly \
+   _David Aspinall and Jaroslav Ševčik_ \
+   [[Link]][8]
+
+[8]: https://www.pure.ed.ac.uk/ws/files/25105628/jmmexamples.pdf
+
+9. On Validity of Program Transformations in the Java Memory Model \
+   _Jaroslav Ševčik and David Aspinall_ \
+   [[Link]][9]
+
+[9]: https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=3d802a3254a1a532f080bc8e713d970ea8796db5
+
+10. Verification of Causality Requirements in Java Memory Model is Undecidable \
+    _Matko Botinčan, Paola Glavan, and Davor Runje_ \
+    [[Link]][10]
+
+[10]: https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=7af2c3dd80647696ee02b56fa046f3d31da067ac
