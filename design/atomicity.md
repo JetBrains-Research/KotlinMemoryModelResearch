@@ -248,7 +248,7 @@ is the so-called "(un)safe publication" problem.
 In safe languages, like Java, publication of a reference 
 to some object, even through a data race,
 should guarantee that another thread, reading this reference,
-should observe the object to be in some well-defined state.
+observes the object to be in some well-defined state.
 Without additional efforts from the compiler and language runtime,
 the reading thread can observe the object in uninitialized state,
 and even read some "garbage" value in place of one of the 
@@ -361,13 +361,114 @@ at least the **default construction guarantee** (option 1),
 and it might in addition provide 
 the stronger **full construction guarantee** (option 2).
 
-## Design Choices for Kotlin
-
 ## Compilation Strategies
+
+Before we discuss the design choices for the Kotlin language,
+it is also important to discuss the compilation strategies 
+for plain accesses when compiling them into the Kotlin backends.
+This is because the design choices for Kotlin are ultimately restricted 
+by what semantics can be pragmatically, efficiently, and soundly implemented
+on top of existing backends.
 
 ### JVM
 
+When compiling Kotlin code to the JVM, the only reasonable strategy
+is to compile plain accesses as the JVM plain accesses.
+
+JVM plain accesses semantics guarantees:
+
+* "no-thin-air values" property;
+* atomicity for references;
+* atomicity for certain primitive types (e.g. `int`);
+* atomicity by default for values classes.
+
+With respect to the safe publication problem, 
+the JVM provides a mixed set of guarantees:
+
+* by default, only the _default construction guarantee_ is provided;
+* however, for the `final` fields the _full construction_ guarantee is provided.
+
 ### LLVM
+
+When compiling Kotlin code to the JVM, 
+there is a choice whether to use accesses annotated 
+with the `NotAtomic` access mode, or the `Unordered` access mode:
+
+* the `NotAtomic` access mode guarantees nothing: 
+  no atomicity and undefined semantics in case of data races;
+
+* the `Unordered` access mode guarantees atomicity 
+  and "no-thin-air values" property.
+
+The LLVM spec itself [recommends](https://llvm.org/docs/Atomics.html#unordered) 
+using the `Unordered` access mode for safe languages.
+However, we failed to find any real compiler that would actually follow
+this recommendation and use `Unordered` access mode: 
+they typically just use `NotAtomic` for plain accesses.
+
+Another obstacle with using `Unordered` is that it seems like 
+the LLVM compiler currently does not optimize `Unordered` accesses efficiently, 
+and thus the switch of access mode results in observable performance degradation.
+Our preliminary [experiments][4] revealed that 
+changing all `NotAtomic` accesses to `Unordered` 
+in the LLVM code produced by Kotlin/Native compiler results 
+in performance degradation on MacOS Arm64 
+of **10% in average**, and **up to 20% maximum**.
+
+Finally, `Unordered` does not give any safe publication guarantees.
+In fact, it is impossible to implement any safe publication semantics 
+on top of LLVM without using stronger atomic accesses.
+This problem can be considered a serious loophole in the current LLVM spec
+(this sentiment was also expressed by other compiler devs, see, for example, the 
+[relevant thread](https://forums.swift.org/t/se-0282-review-2-interoperability-with-the-c-atomic-operations-library/37360/24?page=2) 
+on the Swift language forum).
+
+In more detail, the publication patter when compiled to LLVM,
+should result in the somewhat following code:
+
+```llvm
+;; writer thread 
+%r1 = alloca Holder;
+call void @llvm.memset.p0.i64(i8* %r1, i8 0, i32 sizeof(Holder), i1 false);
+<* optional constructor code *>
+fence release;
+store ptr %r1, ptr %holder;
+
+;; reader thread
+%r2 = load ptr, ptr %holder
+if (%r2 != nullptr) {
+    %r3 = load i32, %r2::<Holder.x>
+}
+```
+
+To make the code snippet above formally sound, according to the current LLVM spec,
+the following changes are necessary:
+
+* the publication store to variable `%holder` should be atomic (at least `Unordered`);
+* the load from `%holder` in the reader thread should be atomic with at least `Acquire` access mode.
+
+As was mentioned above, changing plain accesses to `Unordered` access mode 
+yields observable performance penalty. 
+Promoting the plain loads to `Acquire` loads would result in even 
+more drastic performance degradation.
+Thus, strictly following the LLVM spec to ensure the safe publication guarantee
+is currently infeasible due to performance considerations.
+
+Despite all said above, the aforementioned problems of the LLVM spec, like: 
+* usage of `NotAtomic` accesses leading to undefined behavior in case of races,
+* absence of any sound way to provide the safe publication guarantee,
+
+do not lead to observable bugs in practice (at least we have not found any yet). 
+This is possibly due to the fact that the actual compiler implementation 
+is more conservative than the LLVM specification allows. 
+Thus using `NotAtomic` access mode for plain accesses 
+is a tolerable decision under the giving circumstances.
+
+### JS/WASM
+
+TODO
+
+## Design Choices for Kotlin
 
 ## References
 
