@@ -47,13 +47,8 @@ provided by the main backends of the Kotlin language.
 
 JVM [guarantees](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.7) atomicity 
 of plain memory accesses for:
-* variables of primitive types, except `long` and `double`, that is:
-  * `int`
-  * `short`
-  * `byte`
-  * `char`
-  * `float`
-  * `boolean`
+* variables of some primitive types: `int`, `short`, `byte`, `char`, `boolean`, `float`,
+  * that is all primitive types in JVM except `long` and `double`; 
 * variable of reference types (for references themselves, not the objects they point to).
 
 In addition, with the upcoming [Valhalla project](https://openjdk.org/projects/valhalla/), 
@@ -454,6 +449,19 @@ more drastic performance degradation.
 Thus, strictly following the LLVM spec to ensure the safe publication guarantee
 is currently infeasible due to performance considerations.
 
+With that being said, one can argue that at least in the case of _default construction_,
+any unexpected behavior of the code above, manifesting in practice,
+should be considered a bug in LLVM compiler.
+This is because _default construction_ is a prerequisite for the memory safety 
+and thus a minimal guarantee for any safe language.
+Without this guarantee, it would be impossible to implement any safe language on top of LLVM. 
+
+It is worth noting that with the _full construction_ guarantee, the situation is less obvious.
+This is because the _full construction_ guarantee involves running arbitrary
+user code in the constructor, as opposed to just the `memset` intrinsic 
+in the case of _default construction_.
+Whether the LLVM has to provide any guarantees in this case is debatable.
+
 Despite all said above, the aforementioned problems of the LLVM spec, like: 
 * usage of `NotAtomic` accesses leading to undefined behavior in case of races,
 * absence of any sound way to provide the safe publication guarantee,
@@ -469,6 +477,147 @@ is a tolerable decision under the giving circumstances.
 TODO
 
 ## Design Choices for Kotlin
+
+Here we discuss possible design choices for the 
+semantics of shared plain memory accesses in the Koltin language.
+
+### Minimal Required Set of Guarantees
+
+As a safe language, the Kotlin has to provide at least 
+the following guarantees:
+
+* atomicity for references;
+* safe publication with the _default construction guarantee_.
+
+### Atomicity
+
+There are options of what atomicity guarantees to provide 
+for the other types of variables beyond reference-typed variables:
+
+* atomicity for some primitive types: `Int`, `Short`, `Byte`, `Char`, `Boolean`, `Float`;
+* atomicity by-default for value classes;
+
+with an alternative radical option to 
+* give no by-default atomicity guarantees for any types. 
+
+#### Atomicity for some primitive types
+
+Given that the aforementioned primitive types are already atomic in Java,
+it might be reasonable to provide same guarantees in Kotlin.
+
+**Benefits:**
+
+* Being similar to Java.
+* Follows the principle of [the least surprise](https://en.wikipedia.org/wiki/Principle_of_least_astonishment):
+  * that is, this behavior is expected by most of the developers. 
+
+**Risks:**
+
+* Given that at least currently plain accesses are compiled as `NotAtomic` on LLVM,
+  thus formally having no atomicity guarantees, 
+  it might be risky to rely on the assumption that atomicity violations 
+  do not manifest in practice.
+
+#### Atomicity by-default for value classes
+
+Given that at some point, Kotlin will adopt the notion of 
+[value classes](https://github.com/Kotlin/KEEP/blob/master/notes/value-classes.md#shall-class-immutability-be-the-default),
+we need to consider what atomicity guarantees for these classes Kotlin is going to provide.
+
+In Java, the design choice is to provide atomicity by-default,
+with the option to give up on this guarantee by marking a class
+with the `LooselyConsistentValue` marker interface.
+Kotlin might want to adopt a similar design choice.
+
+**Benefits:**
+
+* Being similar to Java.
+
+**Risks:**
+
+* The users may tend to defensively choose **not to mark** value classes 
+  with `LooselyConsistentValue` interface, thus precluding the compiler 
+  from efficiently optimizing the code. 
+
+#### No By-Default Atomicity Guarantees for Any Types 
+
+Alternatively, there is an option to just not give any atomicity guarantees
+for any types in Kotlin, forcing the user to explicitly mark
+all variables that require atomicity
+(using one of the available in Kotlin mechanisms).
+
+**Benefits:**
+
+* Simple uniform semantics for all types.
+* Plays nicely with the aforementioned limitations and problems around LLVM semantics.  
+
+**Risks:**
+
+* Might be surprising for users and needs to be emphasized in 
+  Kotlin docs, learning materials, etc.
+
+### Safe publication
+
+With respect to the safe publication, there is again a choice of what guarantees should Kotlin provide:
+
+* only the _default construction guarantee_;
+
+or additionally to this minimally required guarantee, also provide:
+
+* _full construction_ guarantee for `val` fields;
+* _full construction_ guarantee for all fields.
+
+Before listing the benefits and risks of each option, 
+it is worth mentioning common pitfall of _full construction_ guarantee in general.
+
+Firstly, as was already mentioned, this guarantee breaks 
+if the `this` reference is leaked in the constructor
+(see an example [here](https://shipilev.net/blog/2014/jmm-pragmatics/#_premature_publication)).
+The leaking `this` and associated initialization errors  
+already pose a serious problem in Kotlin language.
+So the question is, do we want to make the problem more complicated
+by adding yet another aspect to it?
+
+Secondly, as was mentioned in the previous section,
+there is currently no pragmatic way to formally guarantee safe publication on LLVM.
+While this contra-point is technically also applicable to _default construction_,
+we have already mentioned why it is more relevant in case of _full construction_ guarantee.
+
+#### Full construction guarantee for `val` fields
+
+This is the same approach as taken by Java
+(assuming we interpret Kotlin's `val` fields as Java's `final` fields).
+
+**Benefits:**
+
+* Being similar to Java.
+
+**Risks:**
+
+* Inherits the problematic and confusing behavior of Java, where
+  initialization of regular and `final` fields is treated differently. 
+* This semantics breaks under "leaking `this`" problem.
+* Formally unsound on LLVM (according to current LLVM spec). 
+
+#### Full construction guarantee for all fields
+
+Alternatively, it is possible for Kotlin to provide 
+_full construction_ guarantee for both `val` and `var` fields.
+A similar [experiment][11] was done for Java, 
+and was shown to have neglectable performance impact.
+
+**Benefits:**
+
+* Simple and uniform semantics for all kinds of fields (an improvement compared to Java).
+
+**Risks:**
+
+* This semantics breaks under "leaking `this`" problem.
+* Formally unsound on LLVM (according to current LLVM spec).
+
+### Semantics of Data Races
+
+TODO
 
 ## References
 
@@ -528,3 +677,9 @@ TODO
     [[Link]][10]
 
 [10]: https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=7af2c3dd80647696ee02b56fa046f3d31da067ac
+
+11. All Fields Are Final \
+    _Aleksey Shipilëv_ (Blogpost) \
+    [[Link]][11] 
+
+[11]: https://shipilev.net/blog/2014/all-fields-are-final/
