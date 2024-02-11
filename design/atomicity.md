@@ -225,7 +225,7 @@ This is the weakest atomic access mode in the C/C++ (comes right after `Unordere
 Usage of this access mode generally has no significant performance impact.
 This is because relaxed accesses do not emit any memory fences when compiled
 (although certain compiler optimizations are forbidden for relaxed accesses,
- and the compilers just often tend to treat them more conservatively than necessary).
+ and the compilers often tend to treat them more conservatively than necessary).
 More use-cases of `memory_order_relaxed` access mode can be found in 
 the [corresponding guide](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p2055r0.pdf).
 
@@ -241,6 +241,125 @@ However, with no formal semantics at hand,
 the phrase _all possible executions of a program_ is essentially meaningless.
 
 ### Safe Publication
+
+Yet another related problem of plain accesses semantics 
+is the so-called "(un)safe publication" problem.
+
+In safe languages, like Java, publication of a reference 
+to some object, even through a data race,
+should guarantee that another thread, reading this reference,
+should observe the object to be in some well-defined state.
+Without additional efforts from the compiler and language runtime,
+the reading thread can observe the object in uninitialized state,
+and even read some "garbage" value in place of one of the 
+object's reference-typed fields, thus breaking memory safety.
+
+Consider an example below:
+
+```kotlin
+class Inner(val x: Int)
+class Holder(val ref: Inner)
+/* ... */
+var holder: Holder? = null
+/* ... */
+thread {
+    holder = Holder(Inner(42))
+}
+thread {
+    // inner could read "garbage" value instead of
+    // a valid pointer into Kotlin heap
+    val inner = holder?.inner ?: null
+    if (inner != null) {
+        // dereferencing the invalid pointer can result in SEGFAULT
+        println(inner.x)
+    }
+}
+```
+
+Here, there is a read-write race on the `holder` variable.
+Despite this race, the Kotlin language, being the safe language, 
+should guarantee that the reader thread, 
+if observes non-null value in `holder` variable,
+should also observe some valid reference to an `Inner` object in the `ref` field.
+Yet an earlier version of the Kotlin/Native allowed observing an invalid reference 
+(see the corresponding [bug report](https://youtrack.jetbrains.com/issue/KT-58995)). 
+
+The problem arises due to the fact, that the compiler (or processor too)
+is allowed to reorder two plain stores in the writer thread:
+the store initializing `ref` field in the constructor of the `Holder` class,
+and the store publishing the reference to `Holder` object into `holder` variable.
+To prevent such reordering, the compiler (or runtime) should
+emit a memory fence between the two stores.
+
+With respect to the (un)safe publication guarantees,
+there are in fact two possible semantics choices.
+
+1.  **Default construction guarantee:** 
+    when reading object reference through a race, the language
+    only guarantees that thread would not observe any "garbage" values,
+    all fields will be initialized to some valid value, 
+    possibly the default value (`0` for primitive types, `null` for references).
+ 
+2.  **Full construction guarantee:** 
+    when reading object reference through a race, the language
+    guarantees that the thread would observe an object in a 
+    "fully-constructed" state, with all fields initialized
+    to the values that the constructor sets*.  
+
+(*) With respect to the option (2) there is an important constraint. 
+In order for this guarantee to hold, the developer should ensure
+that the `this` reference is not prematurely published by the constructor itself.
+Otherwise, there is no way the compiler/runtime can guarantee the aforementioned property,
+because there is no statically known place to insert the memory fence into.
+
+To see the difference between two approaches, consider the following example:
+
+```kotlin
+class Holder(val x: Int)
+/* ... */
+var holder: Holder? = null
+/* ... */
+thread {
+    holder = Holder(1)
+}
+thread {
+    // inner could read "garbage" value instead of
+    // a valid pointer into Kotlin heap
+    val inner = holder?.inner ?: -1
+    println(inner)
+}
+```
+
+* in case of option (1), the program can print `-1`, `0` or `1`;
+* in case of option (2), the program can print only `-1` or `1`.
+
+Importantly, if the user breaks the "no-leaking-this" contract, 
+as shown below:
+
+```kotlin
+class Holder(val x: Int) {
+    init { holder = this }
+}
+/* ... */
+var holder: Holder? = null
+/* ... */
+thread {
+    Holder(1)
+}
+thread {
+    // inner could read "garbage" value instead of
+    // a valid pointer into Kotlin heap
+    val inner = holder?.inner ?: -1
+    println(inner)
+}
+```
+
+then even in case of option (2), the program still can print `-1`, `0` or `1`.
+
+It means that the safe language should always provide 
+at least the **default construction guarantee** (option 1),
+and it might in addition provide 
+the stronger **full construction guarantee** (option 2).
 
 ## Design Choices for Kotlin
 
