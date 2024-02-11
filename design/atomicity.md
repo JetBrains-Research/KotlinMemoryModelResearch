@@ -318,8 +318,6 @@ thread {
     holder = Holder(1)
 }
 thread {
-    // inner could read "garbage" value instead of
-    // a valid pointer into Kotlin heap
     val inner = holder?.inner ?: -1
     println(inner)
 }
@@ -342,8 +340,6 @@ thread {
     Holder(1)
 }
 thread {
-    // inner could read "garbage" value instead of
-    // a valid pointer into Kotlin heap
     val inner = holder?.inner ?: -1
     println(inner)
 }
@@ -583,6 +579,76 @@ there is currently no pragmatic way to formally guarantee safe publication on LL
 While this contra-point is technically also applicable to _default construction_,
 we have already mentioned why it is more relevant in case of _full construction_ guarantee.
 
+On the other hand, the _default construction only_ guarantee also has drawbacks 
+in the context of Kotlin.
+
+Firstly, there is a problem that even if the constructor does not leak `this` reference,
+under a racy publication another thread may observe an object in invalid partly initialized state,
+that potentially breaks some of the class invariants:
+
+```kotlin
+data class Range(val l: Int, val r: Int) {
+    init {
+        // invariant: l <= r
+        require(l <= r)
+    }
+    
+    override fun toString(): String =
+        "[$l, $r]"
+    
+    /* ... */
+}
+/* ... */
+var range: Range? = null
+/* ... */
+thread {
+    range = Range(-2, -1)
+}
+thread {
+    val x = range ?: return
+    // may print `[0, -1]`
+    println(x)
+}
+```
+
+Similarly, the program may raise `NullPointerException`,
+even though it seemingly has no `null` at all,
+resulting in what can be perceived as a violation of Kotlin's null safety guarantee:
+
+```kotlin
+class Inner(val x: Int)
+class Holder(val ref: Inner)
+/* ... */
+var holder: Holder = Holder(Inner(23))
+/* ... */
+thread {
+    holder = Holder(Inner(42))
+}
+thread {
+    val h = holder
+    if (h != null) {
+        // may throw NullPointerException
+        println(h.ref)
+    }
+}
+```
+
+#### Only the default construction guarantee
+
+This is the simplest choice for Kotlin. 
+
+**Benefits:**
+
+* Simple and uniform semantics for all kinds of fields. 
+* No special rules for leaking `this` case.
+* Lesser soundness risk given the problem of safe publication on LLVM. 
+
+**Risks:**
+
+* Different semantics compared to Java, which may confuse developers coming from Java.
+* Another thread may observe an object in an invalid partly constructed state (see above). 
+* Breaks the null-safety guarantee for well-typed program (see above).
+
 #### Full construction guarantee for `val` fields
 
 This is the same approach as taken by Java
@@ -594,10 +660,12 @@ This is the same approach as taken by Java
 
 **Risks:**
 
-* Inherits the problematic and confusing behavior of Java, where
-  initialization of regular and `final` fields is treated differently. 
 * This semantics breaks under "leaking `this`" problem.
-* Formally unsound on LLVM (according to current LLVM spec). 
+* Formally unsound on LLVM (according to current LLVM spec).
+* Requires changes in the Kotlin/Native compiler backend
+  to ensure that memory fences are always inserted at the end of each constructor.
+* Inherits the problematic and confusing behavior of Java, where
+  initialization of regular and `final` fields is treated differently.
 
 #### Full construction guarantee for all fields
 
@@ -608,12 +676,19 @@ and was shown to have neglectable performance impact.
 
 **Benefits:**
 
-* Simple and uniform semantics for all kinds of fields (an improvement compared to Java).
+* Simple and uniform semantics for all kinds of fields,
+  and an improvement compared to Java.
 
 **Risks:**
 
 * This semantics breaks under "leaking `this`" problem.
 * Formally unsound on LLVM (according to current LLVM spec).
+* This requires changes in both in the Kotlin/Native and Kotlin/JVM compiler backends 
+  to ensure that memory fences are always inserted at the end of each constructor. 
+* Kotlin can only guarantee this for classes compiled by the Kotlin compiler.
+  In Kotlin/JVM code, where classes both from Kotlin and Java can coexist,
+  this results in a confusing situation where different classes can have
+  different initialization semantics.
 
 ### Semantics of Data Races
 
