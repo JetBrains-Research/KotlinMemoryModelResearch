@@ -49,7 +49,7 @@ On the other side, modern programming languages provide a way for developers
 to declare their custom compound data types, generally spanning multiple machine words.
 Without additional measures, it is impossible to guarantee atomicity
 for accesses to the instances of these custom data types.
-And even for single-world data types, certain compiler optimizations 
+And even for single-word data types, certain compiler optimizations 
 may break the atomicity guarantee. 
 
 This is why most modern programming languages (including Java, C++, Rust, etc.) 
@@ -65,7 +65,7 @@ and depends on several factors, including the design principles
 of the particular programming language.
 
 This document discusses the design choices of the Kotlin language
-with respect to atomicity guarantees and semantics of plain shared memory accesses.  
+with respect to atomicity guarantees and semantics of plain shared memory accesses.
 This design should take into account two main concerns:
 providing reasonable and predictable semantics for the Kotlin developers,
 while taking into account the constraints imposed by semantics of 
@@ -94,11 +94,12 @@ of plain memory accesses for:
 In addition, with the upcoming [Valhalla project](https://openjdk.org/projects/valhalla/), 
 which promises to bring user-defined value classes to the Java language,
 the atomicity is by default guaranteed for the instance creation of value classes.
-The developer can explicitly [give up](https://openjdk.org/jeps/8316779#Non-atomic-updates)
-on this guarantee (and thus potentially enable additional optimizations by the JVM) 
+The developer can explicitly give up on this guarantee, 
+and thus potentially enable additional optimizations, 
 by declaring that the value class implements the marking interface `LooselyConsistentValue`.
 
-Consider as an example the `Point` from one of Valhalla's JEP drafts:
+Consider as an example the `Point` class from one of Valhalla's 
+[JEP drafts](https://openjdk.org/jeps/8316779#Non-atomic-updates):
 
 ```java
 value class Point implements LooselyConsistentValue {
@@ -118,7 +119,7 @@ value class Point implements LooselyConsistentValue {
 }
 ```
 
-Now, because the `Point` class is declared as `LooselyConsistentValue`,
+Because the `Point` class is declared as `LooselyConsistentValue`
 in the code fragment below, the last read `Point p = ps[0]` may observe
 "inconsistent" value:
 
@@ -133,7 +134,7 @@ the only possible values that the read `Point p = ps[0]`
 can observe would be either `(0.0, 1.0)` or `(2.0, 3.0)`.
 
 To understand why the behavior may differ 
-with or without `LooselyConsistentValue` interface in the example above,
+with or without `LooselyConsistentValue` interface,
 it is important to understand how the compiler can utilize this information.
 With the `LooselyConsistentValue` interface in place, 
 the compiler/runtime can allocate the array of `Point` objects 
@@ -159,7 +160,7 @@ with two of them directly related to plain memory accesses.
 - `Unordered` access mode is intended for compiling plain memory accesses 
   from "safe" languages like Java, where it is expected that even 
   racy programs have somewhat defined semantics.
-  For this type of accesses the LLVM guarantees atomicity.  
+  For this type of accesses LLVM guarantees atomicity.  
 
 #### Atomicity in JavaScript & WebAssembly
 
@@ -202,7 +203,7 @@ a racy load instruction reads special [`undef` value](https://llvm.org/docs/Lang
 
 It is worth mentioning though that the semantics of `undef` value is a bit trickier than one may expect.
 In particular, the read of `undef` value is not equivalent to a read of some arbitrary value.
-The compiler is allowed to materialize each usage of the same `undef` value to different values.  
+The compiler is allowed to materialize each usage of the same `undef` value to different values.
 For example, for the program below (given in pseudocode), 
 LLVM semantics allow to print "Error":
 
@@ -219,9 +220,9 @@ but it results in undefined semantics,
 essentially breaking any possible safety guarantees.
 Examples of how various safety guarantees can be broken
 due to a combination of data races and various aggressive compiler optimizations
-can be found in the papers [[4]][4], [[5]][5], and [[6]][6].
+can be found in the papers [[4]], [[5]], and [[6]].
 
-__Safe__ languages (for example, Java) cannot fall back to fully undefined semantics
+__Safe__ languages like Java cannot fall back to fully undefined semantics
 in the case of data races, because such a decision would ultimately break all 
 the safety guarantees of the language.
 What these languages typically guarantee instead is the so-called "no-thin-air values" property.
@@ -241,7 +242,7 @@ without actually defining what constitutes "thin-air" values.
 The Java memory model attempted to resolve this issue
 (via the [commit mechanism](https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4.8)),
 but it was later shown to fail in many other aspects
-(see papers [[8]][8], [[9]][9], and [[10]][10] for the details).
+(see papers [[8]], [[9]], and [[10]] for the details).
 Thus, the JMM solution also cannot be considered satisfactory. 
 
 This means that even though safe languages like Java may claim "no-thin-air" guarantee, 
@@ -288,7 +289,7 @@ Some experts argue that the notion of "benign data races" is misleading,
 and that any race on non-atomic variables should be considered an error.
 The motivation for this reasoning is that in the presence of
 some seemingly "benign" races, certain compiler optimizations can produce invalid results
-(see paper [[5]][5] for the details).
+(see paper [[5]] for the details).
 
 This is why in C/C++, where all races lead to undefined behavior,
 all benign data races should be explicitly marked as atomic accesses 
