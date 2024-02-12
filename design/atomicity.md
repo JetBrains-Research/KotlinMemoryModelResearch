@@ -1,5 +1,36 @@
 # Design notes on atomicity guarantees and semantics of plain memory accesses in Kotlin
 
+<!-- TOC -->
+* [Design notes on atomicity guarantees and semantics of plain memory accesses in Kotlin](#design-notes-on-atomicity-guarantees-and-semantics-of-plain-memory-accesses-in-kotlin)
+  * [Overview](#overview)
+    * [Atomicity of Plain Accesses](#atomicity-of-plain-accesses)
+      * [Atomicity in JVM](#atomicity-in-jvm)
+      * [Atomicity in LLVM](#atomicity-in-llvm)
+      * [Atomicity in JS & WebAssembly](#atomicity-in-js--webassembly)
+    * [Data Races](#data-races)
+      * [Out-of-thin-Air Values Problem (OOTA)](#out-of-thin-air-values-problem-oota)
+      * [Controversy around Benign Data Races](#controversy-around-benign-data-races)
+    * [Safe Publication](#safe-publication)
+  * [Compilation Strategies](#compilation-strategies)
+    * [JVM](#jvm)
+    * [LLVM](#llvm)
+    * [JS/WASM](#jswasm)
+  * [Design Choices for Kotlin](#design-choices-for-kotlin)
+    * [Minimal Required Set of Guarantees](#minimal-required-set-of-guarantees)
+    * [Atomicity](#atomicity)
+      * [Atomicity for some primitive types](#atomicity-for-some-primitive-types)
+      * [Atomicity by-default for value classes](#atomicity-by-default-for-value-classes)
+      * [No By-Default Atomicity Guarantees for Any Types](#no-by-default-atomicity-guarantees-for-any-types-)
+    * [Safe publication](#safe-publication-1)
+      * [Only the default construction guarantee](#only-the-default-construction-guarantee)
+      * [Full construction guarantee for `val` fields](#full-construction-guarantee-for-val-fields)
+      * [Full construction guarantee for all fields](#full-construction-guarantee-for-all-fields)
+    * [Semantics of Data Races](#semantics-of-data-races)
+      * [Claim no-thin-air guarantee](#claim-no-thin-air-guarantee)
+      * [Claim no guarantees for racy accesses](#claim-no-guarantees-for-racy-accesses)
+  * [References](#references)
+<!-- TOC -->
+
 Atomicity is a property of an operation guaranteeing that 
 the effect of the operation is observable as single indivisible unit.
 In the context of concurrent programs, this means that
@@ -91,6 +122,18 @@ Point p = ps[0]; // may be (2.0, 1.0), among other possibilities
 Have the `Point` class not implement the `LooselyConsistentValue` marker interface,
 the only possible values that the read `Point p = ps[0]` 
 can observe would be either `(0.0, 1.0)` or `(2.0, 3.0)`.
+
+To understand why the behavior may differ 
+with or without `LooselyConsistentValue` interface in the example above,
+it is important to understand how the compiler can utilize this information.
+With the `LooselyConsistentValue` interface in place, 
+the compiler/runtime can allocate the array of `Point` objects 
+as a flat array of `double`-s. 
+Write to this array then can be compiled as two stores to the
+individual elements of this array.
+However, if the `Point` class is atomic (does not implement `LooselyConsistentValue` interface),
+the compiler has to allocate the array as an array of references to `Point` objects,
+and then the write to this array becomes an atomic write of reference to a newly allocated `Point` object.
 
 #### Atomicity in LLVM
 
@@ -692,7 +735,131 @@ and was shown to have neglectable performance impact.
 
 ### Semantics of Data Races
 
-TODO
+With respect to guarantees for racy programs, there are two options:
+
+* claim no-thin-air guarantee, without formally specifying it (for now);
+* claim no guarantees for data races.
+
+It is worth mentioning that both options would allow us 
+to improve the specification in the future when/if the OOTA problem will be solved.
+
+#### Claim no-thin-air guarantee
+
+We can claim the no-thin-air guarantee without formally specifying it.
+It is, in fact, a commonly accepted approach in the specifications of other programming languages (for example, 
+[C++](https://en.cppreference.com/w/cpp/atomic/memory_order#Relaxed_ordering), 
+[Rust](https://marabos.nl/atomics/memory-ordering.html#oota), 
+[Go](https://go.dev/ref/mem#restrictions), 
+[LLVM](https://llvm.org/docs/Atomics.html#unordered)
+)
+
+**Benefits:**
+
+* Being similar to Java.
+* Follows the principle of the least surprise.
+
+**Risks:**
+
+* Given that at least currently plain accesses are compiled as `NotAtomic` on LLVM,
+  thus do not providing no-thin-air guarantee,
+  it might be risky to rely on the assumption that such thin-air-like behaviors
+  do not manifest in practice.
+* With no formal definition of thin-air values, this guarantee is not very useful.
+
+#### Claim no guarantees for racy accesses
+
+Alternatively, we can simply give no guarantees about the semantics of racy plain accesses
+(beyond the minimal set of guarantees mentioned above).
+
+**Benefits:**
+
+* We do not guarantee what we cannot provide (or even define).
+* Plays nicely with the fact that currently `NotAtomic` accesses are used in LLVM.
+
+**Risks:**
+
+* Might be surprising for users and needs to be emphasized in
+  Kotlin docs, learning materials, etc.
+
+### Advantages of Separating Plain and Atomic Accesses
+
+Having listed above the possible design choices with respect to 
+different guarantees provided for plain accesses,
+in this section we want to re-iterate on the advantages of an approach 
+where the programming language provides only a minimal required set of guarantees.
+
+With such a design choice, the language provides a clear separation between
+the plain and atomic accesses.
+Plain accesses are not meant to be used in a concurrent setting, 
+and any data race on plain accesses should be treated as an error.
+Every variable that could be accessed concurrently should be 
+explicitly marked as atomic.
+
+#### Advantages for the Developers
+
+When all the racy variables are explicitly marked in the source code,
+it becomes easier to understand the intents of the code author:
+the atomicity marker serves as additional documentation for the semantics of a variable. 
+Moreover, it becomes easier to navigate across the code base 
+and search for all possible concurrent interactions.
+
+Even in highly concurrent programs, atomic variables usually constitute only
+a small fraction of all variables, with most of the variables being
+scope or thread local, or protected by some synchronization primitive.
+For this reason, it is not expected that the requirement to explicitly 
+annotate all atomic variables would pose a serious burden to the developers.
+ 
+#### Advantages for the Compiler
+
+The compiler also can benefit from the explicit atomicity annotations.
+With most of the variables being non-concurrently accessed,
+as mentioned above, and with a very relaxed set of guarantees for such variables,
+the compiler has more freedom to optimize accesses to plain variables.
+
+The example with the array of value classes from the Valhalla docs (see above)
+is just one example of how excessive atomicity guarantees can 
+preclude the compiler from various optimizations.
+It is indeed possible to invent more examples of this sort.
+
+These observations suggest that from the compiler's point of view,
+that no-atomicity-guarantees (and minimal guarantees for racy accesses)
+is a saner default than the atomicity-by-default.
+
+In other words, the explicit atomicity annotations serve 
+as an interface between the developer and the compiler,
+where the developer clearly communicates what accesses are intended to be atomic, 
+and gives the compiler a freedom to optimize the rest.
+
+#### Advantages for the Tooling
+
+Other language tooling, like the race detectors, various static or runtime analyzers, and others,
+also benefit from the explicit atomicity annotations.
+
+These tools often cannot compute the program semantics precisely,
+they do not have any domain-specific knowledge about the user program,
+and thus they cannot distinguish between "benign" and "malicious" data races.
+Therefore, these tools usually just report all data races as errors.
+This fact, combined with the "benign" data races perception in the Java community,
+forces the developers to treat such reports as false positives, 
+leading to a frustration with the tooling.
+In such cases, a tool may provide some escape-hatch to allow a user 
+to suppress reports on some data races.
+In an afterthought, it is evident that such a solution 
+is not radically different from just asking the user to 
+explicitly mark the variable as atomic in the source code.
+
+[//]: # (TODO: mention Kotlin coroutines issues)
+
+The approach with explicit atomicity annotations has another advantage for the tooling.
+Because non-concurrent variables usually constitute a dominant number 
+of all variables in a program, an implementation of the tool
+may benefit from optimizing the internal algorithms and data structures
+for a common case of non-concurrent accesses.
+Assumption that correct programs have no data races on plain variables
+(and any data race should be reported as an error)
+could help to additionally optimize the tool's algorithm.
+See, for example, this [paper](http://www.cs.williams.edu/~freund/papers/09-pldi.pdf), 
+for an example of such an optimization for a dynamic data race detector.
 
 ## References
 
