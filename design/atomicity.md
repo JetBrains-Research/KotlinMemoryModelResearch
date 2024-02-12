@@ -28,6 +28,10 @@
     * [Semantics of Data Races](#semantics-of-data-races)
       * [Claim no-thin-air guarantee](#claim-no-thin-air-guarantee)
       * [Claim no guarantees for racy accesses](#claim-no-guarantees-for-racy-accesses)
+    * [Advantages of Separating Plain and Atomic Accesses](#advantages-of-separating-plain-and-atomic-accesses)
+      * [Advantages for the Developers](#advantages-for-the-developers)
+      * [Advantages for the Compiler](#advantages-for-the-compiler)
+      * [Advantages for the Tooling](#advantages-for-the-tooling)
   * [References](#references)
 <!-- TOC -->
 
@@ -813,7 +817,7 @@ annotate all atomic variables would pose a serious burden to the developers.
 
 The compiler also can benefit from the explicit atomicity annotations.
 With most of the variables being non-concurrently accessed,
-as mentioned above, and with a very relaxed set of guarantees for such variables,
+and with a very relaxed set of guarantees for such variables,
 the compiler has more freedom to optimize accesses to plain variables.
 
 The example with the array of value classes from the Valhalla docs (see above)
@@ -822,7 +826,7 @@ preclude the compiler from various optimizations.
 It is indeed possible to invent more examples of this sort.
 
 These observations suggest that from the compiler's point of view,
-that no-atomicity-guarantees (and minimal guarantees for racy accesses)
+the no-atomicity-guarantees (and minimal guarantees for racy accesses)
 is a saner default than the atomicity-by-default.
 
 In other words, the explicit atomicity annotations serve 
@@ -832,8 +836,11 @@ and gives the compiler a freedom to optimize the rest.
 
 #### Advantages for the Tooling
 
-Other language tooling, like the race detectors, various static or runtime analyzers, and others,
-also benefit from the explicit atomicity annotations.
+Other language tooling, like the race detectors 
+(e.g. [TSAN](https://clang.llvm.org/docs/ThreadSanitizer.html)), 
+various static or runtime analyzers 
+(e.g. [RacerD](https://fbinfer.com/docs/checker-racerd/)), 
+and others, also benefit from the explicit atomicity annotations.
 
 These tools often cannot compute the program semantics precisely,
 they do not have any domain-specific knowledge about the user program,
@@ -848,11 +855,26 @@ In an afterthought, it is evident that such a solution
 is not radically different from just asking the user to 
 explicitly mark the variable as atomic in the source code.
 
-[//]: # (TODO: mention Kotlin coroutines issues)
+The problem of false positive data race reports already manifests 
+in the Kotlin ecosystem today.
+For example, there are several reported issues in the 
+[kotlinx-coroutines]() library:
+[1](https://github.com/Kotlin/kotlinx.coroutines/issues/3834), 
+[2](https://github.com/Kotlin/kotlinx.coroutines/issues/3843)
+The [solution](https://github.com/Kotlin/kotlinx.coroutines/pull/3873) 
+currently employed by the library is to explicitly mark fields 
+subject to "benign" data races with the custom `@BenignDataRace` 
+[annotation](https://github.com/Kotlin/kotlinx.coroutines/blob/1a0287ca3fb5d6c59594d62131e878da4929c5f8/kotlinx-coroutines-core/common/src/internal/Concurrent.common.kt#L26),
+which on the Kotlin/Native backed transform into `@Volatile`
+[annotation](https://github.com/Kotlin/kotlinx.coroutines/blob/1a0287ca3fb5d6c59594d62131e878da4929c5f8/kotlinx-coroutines-core/native/src/internal/Concurrent.kt#L35)
+(`SeqCst` atomic in terms of LLVM).
+Once Kotlin implements relaxed atomics, it would be possible to simply 
+use relaxed atomic variable. 
+This would also improve performance on Native by avoiding excessive memory fences.
 
 The approach with explicit atomicity annotations has another advantage for the tooling.
 Because non-concurrent variables usually constitute a dominant number 
-of all variables in a program, an implementation of the tool
+of all variables in a program, an implementation of the analyzer tool
 may benefit from optimizing the internal algorithms and data structures
 for a common case of non-concurrent accesses.
 Assumption that correct programs have no data races on plain variables
