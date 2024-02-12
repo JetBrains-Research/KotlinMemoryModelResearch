@@ -236,7 +236,7 @@ seems intuitive, the problem is that the rigorous formal definition
 of it is an [open research question][6].
 Because of this, all existing specifications of other languages
 (e.g. C++, Rust, Go, etc.) claim "no-thin-air" guarantee 
-(at a certain level of access atomicity),
+(at a certain level of access atomicity)
 without actually defining what constitutes "thin-air" values.
 
 The Java memory model attempted to resolve this issue
@@ -340,7 +340,7 @@ thread {
 }
 thread {
     // inner could read "garbage" value instead of
-    // a valid pointer into Kotlin heap
+    // a valid pointer into heap
     val inner = holder?.inner ?: null
     if (inner != null) {
         // dereferencing the invalid pointer can result in SEGFAULT
@@ -357,7 +357,7 @@ should also observe some valid reference to an `Inner` object in the `ref` field
 Yet an earlier version of the Kotlin/Native allowed observing an invalid reference 
 (see the corresponding [bug report](https://youtrack.jetbrains.com/issue/KT-58995)). 
 
-The problem arises due to the fact, that the compiler (or processor too)
+The problem arises due to the fact, that the compiler (or the hardware)
 is allowed to reorder two plain stores in the writer thread:
 the store initializing `ref` field in the constructor of the `Holder` class,
 and the store publishing the reference to `Holder` object into `holder` variable.
@@ -381,7 +381,7 @@ there are in fact two possible semantics choices.
 
 (*) With respect to the option (2) there is an important constraint. 
 In order for this guarantee to hold, the developer should ensure
-that the `this` reference is not prematurely published by the constructor itself.
+that `this` reference is not prematurely published by the constructor itself.
 Otherwise, there is no way the compiler/runtime can guarantee the aforementioned property,
 because there is no statically known place to insert the memory fence into.
 
@@ -492,7 +492,7 @@ This problem can be considered a serious loophole in the current LLVM spec
 [relevant thread](https://forums.swift.org/t/se-0282-review-2-interoperability-with-the-c-atomic-operations-library/37360/24?page=2) 
 on the Swift language forum).
 
-In more detail, the publication patter when compiled to LLVM,
+In more detail, the publication pattern when compiled to LLVM,
 should result in the somewhat following code:
 
 ```llvm
@@ -525,7 +525,7 @@ is currently infeasible due to performance considerations.
 
 With that being said, one can argue that at least in the case of _default construction_,
 any unexpected behavior of the code above, manifesting in practice,
-should be considered a bug in LLVM compiler.
+should be considered a bug in the LLVM compiler.
 This is because _default construction_ is a prerequisite for the memory safety 
 and thus a minimal guarantee for any safe language.
 Without this guarantee, it would be impossible to implement any safe language on top of LLVM. 
@@ -596,7 +596,7 @@ it might be reasonable to provide same guarantees in Kotlin.
 #### Atomicity by-default for value classes
 
 Given that at some point, Kotlin will adopt the notion of 
-[value classes](https://github.com/Kotlin/KEEP/blob/master/notes/value-classes.md#shall-class-immutability-be-the-default),
+[value classes](https://github.com/Kotlin/KEEP/blob/master/notes/value-classes.md),
 we need to consider what atomicity guarantees for these classes Kotlin is going to provide.
 
 In Java, the design choice is to provide atomicity by-default,
@@ -696,8 +696,7 @@ it is worth mentioning common pitfall of _full construction_ guarantee in genera
 Firstly, as was already mentioned, this guarantee breaks 
 if the `this` reference is leaked in the constructor
 (see an example [here](https://shipilev.net/blog/2014/jmm-pragmatics/#_premature_publication)).
-The leaking `this` and associated initialization errors  
-already pose a serious problem in Kotlin language.
+The leaking `this` and associated initialization errors already pose a serious problem in Kotlin language.
 So the question is, do we want to make the problem more complicated
 by adding yet another aspect to it?
 
@@ -774,7 +773,7 @@ This is the simplest choice for Kotlin.
 
 * Different semantics compared to Java, which may confuse developers coming from Java.
 * Another thread may observe an object in an invalid partly constructed state (see above). 
-* Breaks the null-safety guarantee for well-typed program (see above).
+* Breaks the null-safety guarantee for well-typed programs (see above).
 
 #### Full construction guarantee for `val` fields
 
@@ -813,7 +812,7 @@ and was shown to have neglectable performance impact.
 * This requires changes in both in the Kotlin/Native and Kotlin/JVM compiler backends 
   to ensure that memory fences are always inserted at the end of each constructor. 
 * Kotlin can only guarantee this for classes compiled by the Kotlin compiler.
-  In Kotlin/JVM code, where classes both from Kotlin and Java can coexist,
+  In Kotlin/JVM code, where classes from both Kotlin and Java can coexist,
   this results in a confusing situation where different classes can have
   different initialization semantics.
 
@@ -833,7 +832,7 @@ explicitly marked as atomic.
 
 As of today Kotlin provides only `Volatile` atomics (`SeqCst` in terms of LLVM).
 Marking all atomic variables as `Volatile`, 
-including those which are subject to benign data races, 
+including those which are subject only to "benign" data races, 
 would lead to significant performance overhead.
 This is the strongest access mode (both in JVM and LLVM), 
 which upon compilation emits full memory fences.
@@ -907,7 +906,7 @@ in the Kotlin ecosystem today.
 For example, there are several reported issues in the 
 [kotlinx-coroutines](https://github.com/Kotlin/kotlinx.coroutines) library:
 [1](https://github.com/Kotlin/kotlinx.coroutines/issues/3834), 
-[2](https://github.com/Kotlin/kotlinx.coroutines/issues/3843)
+[2](https://github.com/Kotlin/kotlinx.coroutines/issues/3843).
 The [solution](https://github.com/Kotlin/kotlinx.coroutines/pull/3873) 
 currently employed by the library is to explicitly mark fields 
 subject to "benign" data races with the custom `@BenignDataRace` 
