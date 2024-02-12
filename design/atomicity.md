@@ -6,7 +6,7 @@
     * [Atomicity of Plain Accesses](#atomicity-of-plain-accesses)
       * [Atomicity in JVM](#atomicity-in-jvm)
       * [Atomicity in LLVM](#atomicity-in-llvm)
-      * [Atomicity in JS & WebAssembly](#atomicity-in-js--webassembly)
+      * [Atomicity in JavaScript & WebAssembly](#atomicity-in-javascript--webassembly)
     * [Data Races](#data-races)
       * [Out-of-thin-Air Values Problem (OOTA)](#out-of-thin-air-values-problem-oota)
       * [Controversy around Benign Data Races](#controversy-around-benign-data-races)
@@ -28,7 +28,7 @@
     * [Semantics of Data Races](#semantics-of-data-races)
       * [Claim no-thin-air guarantee](#claim-no-thin-air-guarantee)
       * [Claim no guarantees for racy accesses](#claim-no-guarantees-for-racy-accesses)
-    * [Advantages of Separating Plain and Atomic Accesses](#advantages-of-separating-plain-and-atomic-accesses)
+    * [Advantages of Strict Separation of Plain and Atomic Accesses](#advantages-of-strict-separation-of-plain-and-atomic-accesses)
       * [Advantages for the Developers](#advantages-for-the-developers)
       * [Advantages for the Compiler](#advantages-for-the-compiler)
       * [Advantages for the Tooling](#advantages-for-the-tooling)
@@ -156,9 +156,34 @@ with two of them directly related to plain memory accesses.
   racy programs have somewhat defined semantics.
   For this type of accesses the LLVM guarantees atomicity.  
 
-#### Atomicity in JS & WebAssembly
+#### Atomicity in JavaScript & WebAssembly
 
-TODO
+Contrary to common belief, the JavaScript language has concurrency capabilities, 
+atomic variables, and even [memory model specification][12].
+In JavaScript, concurrent access can arise from 
+several [Workers](https://developer.mozilla.org/en-US/docs/Web/API/Worker) accessing the same 
+[SharedArrayBuffer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer).
+
+Similarly, there is a WebAssembly [proposal][13] specifying
+shared linear memory and atomic accesses.
+The WASM GC is also expected to eventually support
+[threads and shared accesses](https://github.com/WebAssembly/gc/blob/main/proposals/gc/Post-MVP.md#threads-and-shared-references).
+
+It is worth mentioning that unlike the case of JVM and LLVM memory models,
+which define it in terms of abstract typed memory locations,
+JS and WASM define shared memory in terms of untyped sequence of bytes.
+This opens up a whole new set of challenges related to 
+[mixed-sized accesses and tearing](http://cambium.inria.fr/~maranget/papers/mixed-size.pdf). 
+We will ignore the mixed-sized nature of this memory model,
+and assume all accesses are properly aligned and are not subject to tearing.
+
+Both JS and WASM provide just two types of memory accesses: `Unordered` and `SeqCst`.
+The `Unordered` accesses are intended for accesses to plain variables,
+while `SeqCst` accesses are for atomics.
+
+Both JS and WASM intend to provide safe semantics with no undefined behavior,
+and thus `Unordered` access mode in general should have same semantics
+as `Unordered` in LLVM.
 
 ### Data Races
 
@@ -517,7 +542,8 @@ is a tolerable decision under the giving circumstances.
 
 ### JS/WASM
 
-TODO
+When compiling Kotlin code to the JS/WASM, the only reasonable strategy
+is to compile plain accesses as the JS/WASM plain accesses.
 
 ## Design Choices for Kotlin
 
@@ -785,7 +811,7 @@ Alternatively, we can simply give no guarantees about the semantics of racy plai
 * Might be surprising for users and needs to be emphasized in
   Kotlin docs, learning materials, etc.
 
-### Advantages of Separating Plain and Atomic Accesses
+### Advantages of Strict Separation of Plain and Atomic Accesses
 
 Having listed above the possible design choices with respect to 
 different guarantees provided for plain accesses,
@@ -800,7 +826,9 @@ Every variable that could be accessed concurrently should be
 explicitly marked as atomic.
 
 As of today Kotlin provides only `Volatile` atomics (`SeqCst` in terms of LLVM).
-Marking all atomic variables as `Volatile` would lead to significant performance overhead.
+Marking all atomic variables as `Volatile`, 
+including those which are subject to benign data races, 
+would lead to significant performance overhead.
 This is the strongest access mode (both in JVM and LLVM), 
 which upon compilation emits full memory fences.
 However, in the future, it might be beneficial to also support in Kotlin 
@@ -871,7 +899,7 @@ explicitly mark the variable as atomic in the source code.
 The problem of false positive data race reports already manifests 
 in the Kotlin ecosystem today.
 For example, there are several reported issues in the 
-[kotlinx-coroutines]() library:
+[kotlinx-coroutines](https://github.com/Kotlin/kotlinx.coroutines) library:
 [1](https://github.com/Kotlin/kotlinx.coroutines/issues/3834), 
 [2](https://github.com/Kotlin/kotlinx.coroutines/issues/3843)
 The [solution](https://github.com/Kotlin/kotlinx.coroutines/pull/3873) 
@@ -959,3 +987,13 @@ for an example of such an optimization for a dynamic data race detector.
     [[Link]][11] 
 
 [11]: https://shipilev.net/blog/2014/all-fields-are-final/
+
+12. JavaScript Memory Model Specification (part of ECMA-262) \
+    [[Link]][12]
+
+[12]: https://262.ecma-international.org/14.0/?_gl=1*7kz3f*_ga*ODA0MDU0MDc5LjE3MDc3NjAxOTE.*_ga_TDCK4DWEPP*MTcwNzc2MDE5MC4xLjEuMTcwNzc2MDIwOC4wLjAuMA..#sec-memory-model
+
+13. WebAssembly Threading and Atomic Memory Accesses Proposal \
+    [[Link]][13]
+
+[13]: https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md
