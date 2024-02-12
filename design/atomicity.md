@@ -625,6 +625,54 @@ all variables that require atomicity
 * Might be surprising for users and needs to be emphasized in 
   Kotlin docs, learning materials, etc.
 
+### Semantics of Data Races
+
+With respect to guarantees for racy programs, there are two options:
+
+* claim no-thin-air guarantee, without formally specifying it (for now);
+* claim no guarantees for data races.
+
+It is worth mentioning that both options would allow us
+to improve the specification in the future when/if the OOTA problem will be solved.
+
+#### Claim no-thin-air guarantee
+
+We can claim the no-thin-air guarantee without formally specifying it.
+It is, in fact, a commonly accepted approach in the specifications of other programming languages (for example,
+[C++](https://en.cppreference.com/w/cpp/atomic/memory_order#Relaxed_ordering),
+[Rust](https://marabos.nl/atomics/memory-ordering.html#oota),
+[Go](https://go.dev/ref/mem#restrictions),
+[LLVM](https://llvm.org/docs/Atomics.html#unordered)
+)
+
+**Benefits:**
+
+* Being similar to Java.
+* Follows the principle of the least surprise.
+
+**Risks:**
+
+* Given that at least currently plain accesses are compiled as `NotAtomic` on LLVM,
+  thus do not providing no-thin-air guarantee,
+  it might be risky to rely on the assumption that such thin-air-like behaviors
+  do not manifest in practice.
+* With no formal definition of thin-air values, this guarantee is not very useful.
+
+#### Claim no guarantees for racy accesses
+
+Alternatively, we can simply give no guarantees about the semantics of racy plain accesses
+(beyond the minimal set of guarantees mentioned above).
+
+**Benefits:**
+
+* We do not guarantee what we cannot provide (or even define).
+* Plays nicely with the fact that currently `NotAtomic` accesses are used in LLVM.
+
+**Risks:**
+
+* Might be surprising for users and needs to be emphasized in
+  Kotlin docs, learning materials, etc.
+
 ### Safe publication
 
 With respect to the safe publication, there is again a choice of what guarantees should Kotlin provide:
@@ -762,54 +810,6 @@ and was shown to have neglectable performance impact.
   In Kotlin/JVM code, where classes both from Kotlin and Java can coexist,
   this results in a confusing situation where different classes can have
   different initialization semantics.
-
-### Semantics of Data Races
-
-With respect to guarantees for racy programs, there are two options:
-
-* claim no-thin-air guarantee, without formally specifying it (for now);
-* claim no guarantees for data races.
-
-It is worth mentioning that both options would allow us 
-to improve the specification in the future when/if the OOTA problem will be solved.
-
-#### Claim no-thin-air guarantee
-
-We can claim the no-thin-air guarantee without formally specifying it.
-It is, in fact, a commonly accepted approach in the specifications of other programming languages (for example, 
-[C++](https://en.cppreference.com/w/cpp/atomic/memory_order#Relaxed_ordering), 
-[Rust](https://marabos.nl/atomics/memory-ordering.html#oota), 
-[Go](https://go.dev/ref/mem#restrictions), 
-[LLVM](https://llvm.org/docs/Atomics.html#unordered)
-)
-
-**Benefits:**
-
-* Being similar to Java.
-* Follows the principle of the least surprise.
-
-**Risks:**
-
-* Given that at least currently plain accesses are compiled as `NotAtomic` on LLVM,
-  thus do not providing no-thin-air guarantee,
-  it might be risky to rely on the assumption that such thin-air-like behaviors
-  do not manifest in practice.
-* With no formal definition of thin-air values, this guarantee is not very useful.
-
-#### Claim no guarantees for racy accesses
-
-Alternatively, we can simply give no guarantees about the semantics of racy plain accesses
-(beyond the minimal set of guarantees mentioned above).
-
-**Benefits:**
-
-* We do not guarantee what we cannot provide (or even define).
-* Plays nicely with the fact that currently `NotAtomic` accesses are used in LLVM.
-
-**Risks:**
-
-* Might be surprising for users and needs to be emphasized in
-  Kotlin docs, learning materials, etc.
 
 ### Advantages of Strict Separation of Plain and Atomic Accesses
 
