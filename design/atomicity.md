@@ -799,6 +799,19 @@ and any data race on plain accesses should be treated as an error.
 Every variable that could be accessed concurrently should be 
 explicitly marked as atomic.
 
+As of today Kotlin provides only `Volatile` atomics (`SeqCst` in terms of LLVM).
+Marking all atomic variables as `Volatile` would lead to significant performance overhead.
+This is the strongest access mode (both in JVM and LLVM), 
+which upon compilation emits full memory fences.
+However, in the future, it might be beneficial to also support in Kotlin 
+other kinds of atomics with weaker access modes
+(similar to the ones provided by JVM and LLVM).
+Marking benign data races as relaxed atomics 
+(`Opaque` [in terms of Java](https://gee.cs.oswego.edu/dl/html/j9mm.html#opaquesec), 
+  and `Monotonic` [in terms of LLVM](https://llvm.org/docs/Atomics.html#monotonic))
+would likely result in no observable performance penalty
+compared to just using plain accesses. 
+
 #### Advantages for the Developers
 
 When all the racy variables are explicitly marked in the source code,
@@ -866,8 +879,7 @@ currently employed by the library is to explicitly mark fields
 subject to "benign" data races with the custom `@BenignDataRace` 
 [annotation](https://github.com/Kotlin/kotlinx.coroutines/blob/1a0287ca3fb5d6c59594d62131e878da4929c5f8/kotlinx-coroutines-core/common/src/internal/Concurrent.common.kt#L26),
 which on the Kotlin/Native backed transform into `@Volatile`
-[annotation](https://github.com/Kotlin/kotlinx.coroutines/blob/1a0287ca3fb5d6c59594d62131e878da4929c5f8/kotlinx-coroutines-core/native/src/internal/Concurrent.kt#L35)
-(`SeqCst` atomic in terms of LLVM).
+[annotation](https://github.com/Kotlin/kotlinx.coroutines/blob/1a0287ca3fb5d6c59594d62131e878da4929c5f8/kotlinx-coroutines-core/native/src/internal/Concurrent.kt#L35).
 Once Kotlin implements relaxed atomics, it would be possible to simply 
 use relaxed atomic variable. 
 This would also improve performance on Native by avoiding excessive memory fences.
