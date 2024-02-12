@@ -73,6 +73,11 @@ plain accesses in Kotlin backends (JVM, LLVM, and JS/WASM).
 
 ## Overview
 
+In this section we overview the set of problems 
+associated with the atomicity and semantics of plain memory accesses in general,
+as well as how these problems are resolved in the languages targeted 
+by the Kotlin compiler backend.
+
 ### Atomicity of Plain Accesses
 
 In this section, we overview the atomicity guarantees 
