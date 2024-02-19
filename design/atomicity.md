@@ -614,7 +614,7 @@ Kotlin might want to adopt a similar design choice.
   with `LooselyConsistentValue` interface, thus precluding the compiler 
   from efficiently optimizing the code. 
 
-#### No By-Default Atomicity Guarantees for Any Types 
+#### No by-default atomicity guarantees for any types 
 
 Alternatively, there is an option to just not give any atomicity guarantees
 for any types in Kotlin, forcing the user to explicitly mark
