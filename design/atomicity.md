@@ -20,7 +20,7 @@
     * [Atomicity](#atomicity)
       * [Atomicity for some primitive types](#atomicity-for-some-primitive-types)
       * [Atomicity by-default for value classes](#atomicity-by-default-for-value-classes)
-      * [No By-Default Atomicity Guarantees for Any Types](#no-by-default-atomicity-guarantees-for-any-types-)
+      * [No by-default atomicity guarantees for any types](#no-by-default-atomicity-guarantees-for-any-types-)
     * [Semantics of Data Races](#semantics-of-data-races)
       * [Claim no-thin-air guarantee](#claim-no-thin-air-guarantee)
       * [Claim no guarantees for racy accesses](#claim-no-guarantees-for-racy-accesses)
@@ -459,7 +459,7 @@ the JVM provides a mixed set of guarantees:
 
 ### LLVM
 
-When compiling Kotlin code to the JVM, 
+When compiling Kotlin code to the LLVM, 
 there is a choice whether to use accesses annotated 
 with the `NotAtomic` access mode, or the `Unordered` access mode:
 
@@ -705,6 +705,18 @@ there is currently no pragmatic way to formally guarantee safe publication on LL
 While this contra-point is technically also applicable to _default construction_,
 we have already mentioned why it is more relevant in case of _full construction_ guarantee.
 
+To remind our argument, recall that in case of the default construction guarantee,
+we have the following LLVM code in the writer thread: `alloc, memset(0), fence release`.
+Although it is technically unsound according to LLVM, 
+it would be natural to expect to observe only `0`-s in the reader thread, because:
+* the code only does `memset` to `0`, there are no other stores before the fence;
+* if it is not true, there is no way to implement any memory-safe language on top of LLVM.
+
+In case of the full construction guarantee, we have the following code 
+in the writer thread: `alloc, memset(0), constructor code, fence release`.
+The code in the constructor can be arbitrary complex user-code.
+It is much harder to argue what should be the expected LLVM behavior in this case.
+
 On the other hand, the _default construction only_ guarantee also has drawbacks 
 in the context of Kotlin.
 
@@ -843,7 +855,21 @@ Marking benign data races as relaxed atomics
 (`Opaque` [in terms of Java](https://gee.cs.oswego.edu/dl/html/j9mm.html#opaquesec), 
   and `Monotonic` [in terms of LLVM](https://llvm.org/docs/Atomics.html#monotonic))
 would likely result in no observable performance penalty
-compared to just using plain accesses. 
+compared to just using plain accesses.
+
+Note that this claim does not contradict the previous statement
+about overhead of using `Unordered` accesses for compiling plain accesses.
+The difference is that in our experiments with `Unordered` access mode, 
+we changed **all** `NotAtomic` accesses to `Unordered` accesses, 
+because we wanted to evaluate what would be the cost 
+of implementing plain accesses in Kotlin via `Unordered` accesses in LLVM.
+In the case of benign data races, there is usually only a small number of variables subject to races, 
+compared to the total number of variables in the program. 
+Only these racy accesses need to be compiled as `Monotonic`.
+It is true that in theory, if some of these "benign race" accesses are on a hot-path, 
+it can lead to performance degradation. 
+We would not expect for it to be the case, 
+but indeed, some real-world benchmarks would be helpful to ensure this.
 
 #### Advantages for the Developers
 
